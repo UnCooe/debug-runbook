@@ -19,6 +19,10 @@ steps:
     tool: trace.lookup
     required: false
     purpose: confirm whether the request can be observed via trace
+    params:
+      # 若 context_type 为 trace_id，直接用 context_id 查
+      # 否则尝试在 db 中关联 trace_id（见 executor 的 trace_ref_column）
+      trace_ref_column: trace_id
 
   - id: inspect_core_path
     tool: trace.inspect_spans
@@ -29,11 +33,16 @@ steps:
     tool: db.readonly_query
     required: true
     purpose: confirm whether the expected primary state was persisted
+    params:
+      table: orders
+      match_column: order_id
 
   - id: inspect_idempotency_cache
     tool: redis.inspect
     required: false
     purpose: detect stale cache or idempotency short-circuit
+    params:
+      key_template: "idempotency:{{context_id}}"
 
 decision_rules:
   - id: trace_missing

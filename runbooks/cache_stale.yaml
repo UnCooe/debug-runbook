@@ -19,16 +19,23 @@ steps:
     tool: redis.inspect
     required: true
     purpose: inspect current cache value and ttl
+    params:
+      key_template: "cache:order:{{context_id}}"
 
   - id: verify_db_state
     tool: db.readonly_query
     required: true
     purpose: compare cache against persisted state
+    params:
+      table: orders
+      match_column: order_id
 
   - id: inspect_recent_trace
     tool: trace.lookup
     required: false
     purpose: find whether a cache write or invalidation was expected
+    params:
+      trace_ref_column: trace_id
 
 decision_rules:
   - id: cache_db_mismatch
