@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Evidence",
+  "type": "object",
+  "required": [
+    "id",
+    "source",
+    "entity_id",
+    "timestamp",
+    "finding_type",
+    "summary",
+    "confidence",
+    "raw_ref"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finding_type": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "raw_ref": {
+      "type": "string"
+    },
+    "query": {
+      "type": "string"
+    },
+    "service": {
+      "type": "string"
+    },
+    "span_id": {
+      "type": "string"
+    },
+    "table": {
+      "type": "string"
+    },
+    "key": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "warning", "error"]
+    },
+    "normalization_status": {
+      "type": "string",
+      "enum": ["complete", "partial", "ambiguous"]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "query_name": "order_state",
+  "entity_id": "order_555",
+  "rows": {
+    "order_main": [
+      {
+        "order_id": "order_555",
+        "status": "paid"
+      }
+    ]
+  }
+}

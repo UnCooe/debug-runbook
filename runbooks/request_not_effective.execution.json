@@ -1,0 +1,9 @@
+{
+  "name": "request_not_effective",
+  "operations": [
+    "trace.lookup",
+    "trace.inspect_spans",
+    "db.readonly_query",
+    "redis.inspect"
+  ]
+}

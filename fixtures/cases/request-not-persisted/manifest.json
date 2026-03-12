@@ -1,0 +1,19 @@
+{
+  "case_id": "request-not-persisted",
+  "title": "Request never reached observable persistence",
+  "runbook": "request_not_effective",
+  "incident": {
+    "context_id": "request_4041",
+    "context_type": "request_id",
+    "symptom": "User submitted a request, but the expected record was never created.",
+    "expected": "The request should create a persisted order record."
+  },
+  "expected": {
+    "runbook": "request_not_effective",
+    "primary_conclusion": "request_not_observable_via_trace",
+    "required_finding_types": [
+      "trace_missing",
+      "db_row_missing"
+    ]
+  }
+}

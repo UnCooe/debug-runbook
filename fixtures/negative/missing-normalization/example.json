@@ -1,0 +1,9 @@
+{
+  "example": "This negative sample is not loaded automatically.",
+  "runbook": "broken_runbook",
+  "execution": {
+    "name": "broken_runbook",
+    "operations": ["mq.inspect"]
+  },
+  "expected_failure": "Missing normalization metadata for operation mq.inspect"
+}

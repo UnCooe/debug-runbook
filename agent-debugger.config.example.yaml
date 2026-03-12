@@ -1,0 +1,47 @@
+# agent-debugger 配置示例
+# 复制此文件为 agent-debugger.config.yaml 并填入真实凭据
+
+adapters:
+  langfuse:
+    # Langfuse Cloud: https://cloud.langfuse.com
+    # Self-hosted: 填入你的私有部署地址
+    base_url: https://cloud.langfuse.com
+    secret_key: ${LANGFUSE_SECRET_KEY}
+    public_key: ${LANGFUSE_PUBLIC_KEY}
+    # 只提取这些字段进入 Evidence，防止 token 爆炸
+    span_field_allowlist:
+      - input
+      - output
+      - metadata.error
+      - level
+      - statusMessage
+      - latency
+
+  db:
+    type: postgres
+    connection_string: ${DATABASE_URL}
+    # 只允许 SELECT 这些表，其他表拒绝访问
+    allowed_tables:
+      - orders
+      - tasks
+      - users
+      - payments
+
+  redis:
+    url: ${REDIS_URL}
+    # 只允许访问匹配这些前缀的 key
+    key_prefix_allowlist:
+      - "idempotency:"
+      - "cache:order:"
+      - "cache:task:"
+      - "session:"
+
+runbooks:
+  # 内置 runbook（默认已包含，无需配置）
+  # - ./runbooks/request_not_effective.yaml
+  # - ./runbooks/cache_stale.yaml
+  # - ./runbooks/state_abnormal.yaml
+
+  # 在这里追加你的团队自定义 runbook
+  # - ./team-runbooks/order_task_missing.yaml
+  # - ./team-runbooks/payment_not_settled.yaml

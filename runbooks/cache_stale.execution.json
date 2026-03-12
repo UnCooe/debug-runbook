@@ -1,0 +1,8 @@
+{
+  "name": "cache_stale",
+  "operations": [
+    "redis.inspect",
+    "db.readonly_query",
+    "trace.lookup"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "key": "task:view:task_903",
+  "exists": true,
+  "ttl_seconds": 360,
+  "value_preview": {
+    "task_id": "task_903",
+    "status": "pending"
+  }
+}

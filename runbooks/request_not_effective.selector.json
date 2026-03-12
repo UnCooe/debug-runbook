@@ -1,0 +1,21 @@
+{
+  "name": "request_not_effective",
+  "priority": 2,
+  "context_types": ["trace_id", "request_id", "order_id"],
+  "positive_signals": [
+    { "pattern": "did not", "weight": 2.5 },
+    { "pattern": "not generated", "weight": 2.5 },
+    { "pattern": "not created", "weight": 2.5 },
+    { "pattern": "missing", "weight": 2.5 },
+    { "pattern": "never created", "weight": 2.5 },
+    { "pattern": "should be created", "weight": 1.5 },
+    { "pattern": "after", "weight": 1.5 },
+    { "pattern": "moved to pending", "weight": 1.5 },
+    { "pattern": "(not generated|not created|did not|never created|missing)", "weight": 2, "mode": "regex" }
+  ],
+  "negative_signals": [
+    { "pattern": "status is", "weight": -2 },
+    { "pattern": "status should be", "weight": -2 },
+    { "pattern": "incorrect status", "weight": -2 }
+  ]
+}

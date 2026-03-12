@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "locator": {
+    "context_id": "order_123",
+    "context_type": "order_id"
+  },
+  "trace_id": "trace_order_123",
+  "service": "order-service",
+  "entry_span": "OrderCreateFlow",
+  "duration_ms": 187,
+  "status": "ok"
+}

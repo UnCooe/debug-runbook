@@ -1,0 +1,7 @@
+{
+  "ok": true,
+  "key": "idempotency:request_4041",
+  "exists": false,
+  "ttl_seconds": -2,
+  "value_preview": null
+}

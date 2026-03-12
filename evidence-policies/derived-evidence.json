@@ -1,0 +1,22 @@
+{
+  "name": "cross_source_default",
+  "rules": [
+    {
+      "id": "status_mismatch_from_cache_and_db",
+      "sources": ["redis.inspect", "db.readonly_query", "db.lookup_entity"],
+      "when": {
+        "redis.inspect": { "ok": true, "path_exists": "value_preview.status" },
+        "db.any": { "ok": true, "first_status_exists": true, "status_differs_from": "redis.inspect.value_preview.status" }
+      },
+      "emit": {
+        "id_suffix": "derived-status-mismatch",
+        "source": "derived",
+        "finding_type": "status_mismatch",
+        "summary_template": "Cache status {{redis_status}} conflicts with persisted status {{db_status}}.",
+        "confidence": 0.9,
+        "raw_ref": "derived:redis-vs-db",
+        "normalization_status": "complete"
+      }
+    }
+  ]
+}

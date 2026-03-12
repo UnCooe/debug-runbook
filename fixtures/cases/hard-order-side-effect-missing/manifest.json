@@ -1,0 +1,24 @@
+{
+  "case_id": "hard-order-side-effect-missing",
+  "title": "Hard case: order has a valid status but downstream settlement task was not generated",
+  "difficulty": "hard",
+  "runbook": "request_not_effective",
+  "incident": {
+    "context_id": "order_901",
+    "context_type": "order_id",
+    "symptom": "Order status is created, but the settlement task was not generated.",
+    "expected": "A settlement task should be created after order creation and enter pending state."
+  },
+  "expected": {
+    "runbook": "request_not_effective",
+    "primary_conclusion": "request_short_circuited_by_cache_or_idempotency",
+    "required_finding_types": [
+      "trace_found",
+      "span_missing",
+      "db_row_found",
+      "db_row_missing",
+      "cache_key_exists",
+      "cache_ttl_positive"
+    ]
+  }
+}

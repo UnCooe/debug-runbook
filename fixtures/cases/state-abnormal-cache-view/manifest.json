@@ -1,0 +1,21 @@
+{
+  "case_id": "state-abnormal-cache-view",
+  "title": "Order state is incorrect because cache view lags behind persisted status",
+  "runbook": "state_abnormal",
+  "incident": {
+    "context_id": "order_555",
+    "context_type": "order_id",
+    "symptom": "Order status is still pending, which is incorrect.",
+    "expected": "The order should be paid."
+  },
+  "expected": {
+    "runbook": "state_abnormal",
+    "primary_conclusion": "stale_or_conflicting_cache_view",
+    "required_finding_types": [
+      "db_row_found",
+      "trace_found",
+      "cache_key_exists",
+      "status_mismatch"
+    ]
+  }
+}

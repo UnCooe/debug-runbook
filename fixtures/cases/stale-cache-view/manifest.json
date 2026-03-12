@@ -1,0 +1,21 @@
+{
+  "case_id": "stale-cache-view",
+  "title": "Persisted state is correct but cache is stale",
+  "runbook": "cache_stale",
+  "incident": {
+    "context_id": "task_777",
+    "context_type": "task_id",
+    "symptom": "API still returns pending, but task should be finished.",
+    "expected": "The task should be returned as finished."
+  },
+  "expected": {
+    "runbook": "cache_stale",
+    "primary_conclusion": "cache_value_conflicts_with_persisted_state",
+    "required_finding_types": [
+      "cache_key_exists",
+      "status_mismatch",
+      "db_row_found",
+      "trace_found"
+    ]
+  }
+}

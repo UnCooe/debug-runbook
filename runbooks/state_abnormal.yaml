@@ -1,0 +1,44 @@
+name: state_abnormal
+description: Investigate why persisted backend state does not match the expected business state.
+
+match:
+  context_types:
+    - order_id
+    - task_id
+    - user_id
+  symptoms:
+    - status is incorrect
+    - data exists but state is unexpected
+
+limits:
+  max_steps: 8
+  max_tool_calls: 10
+
+steps:
+  - id: lookup_primary_entity
+    tool: db.lookup_entity
+    required: true
+    purpose: fetch the current persisted state
+
+  - id: inspect_related_trace
+    tool: trace.lookup
+    required: false
+    purpose: map recent transitions to execution flow
+
+  - id: inspect_cache
+    tool: redis.inspect
+    required: false
+    purpose: detect stale or contradictory cached state
+
+decision_rules:
+  - id: db_cache_conflict
+    when:
+      all:
+        - finding_type: status_mismatch
+        - finding_type: cache_key_exists
+    conclusion: stale_or_conflicting_cache_view
+    confidence: medium
+
+output:
+  schema: incident_report
+  require_evidence: true

@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "key": "order:view:order_555",
+  "exists": true,
+  "ttl_seconds": 480,
+  "value_preview": {
+    "order_id": "order_555",
+    "status": "pending"
+  }
+}

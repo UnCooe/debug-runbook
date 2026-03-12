@@ -1,0 +1,18 @@
+{
+  "example": "This negative sample is not loaded automatically.",
+  "fixture": {
+    "case_id": "broken-fixture",
+    "incident": {
+      "context_id": "x",
+      "context_type": "order_id",
+      "symptom": "Broken fixture example.",
+      "expected": "Should fail."
+    },
+    "expected": {
+      "runbook": "nonexistent_runbook",
+      "primary_conclusion": "investigation_inconclusive",
+      "required_finding_types": []
+    }
+  },
+  "expected_failure": "references unknown expected.runbook nonexistent_runbook"
+}

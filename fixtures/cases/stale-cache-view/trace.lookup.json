@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "locator": {
+    "context_id": "task_777",
+    "context_type": "task_id"
+  },
+  "trace_id": "trace_task_777",
+  "service": "task-service",
+  "entry_span": "UpdateTaskStatus",
+  "duration_ms": 95,
+  "status": "ok"
+}

@@ -1,0 +1,44 @@
+name: cache_stale
+description: Investigate whether stale cache is causing an incorrect backend behavior or view.
+
+match:
+  context_types:
+    - request_id
+    - order_id
+    - task_id
+  symptoms:
+    - cache appears stale
+    - returned state does not match persistence
+
+limits:
+  max_steps: 6
+  max_tool_calls: 8
+
+steps:
+  - id: inspect_cache_key
+    tool: redis.inspect
+    required: true
+    purpose: inspect current cache value and ttl
+
+  - id: verify_db_state
+    tool: db.readonly_query
+    required: true
+    purpose: compare cache against persisted state
+
+  - id: inspect_recent_trace
+    tool: trace.lookup
+    required: false
+    purpose: find whether a cache write or invalidation was expected
+
+decision_rules:
+  - id: cache_db_mismatch
+    when:
+      all:
+        - finding_type: cache_key_exists
+        - finding_type: status_mismatch
+    conclusion: cache_value_conflicts_with_persisted_state
+    confidence: high
+
+output:
+  schema: incident_report
+  require_evidence: true

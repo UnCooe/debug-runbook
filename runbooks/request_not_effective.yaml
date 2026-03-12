@@ -1,0 +1,64 @@
+name: request_not_effective
+description: Investigate why a request did not produce the expected backend effect.
+
+match:
+  context_types:
+    - trace_id
+    - request_id
+    - order_id
+  symptoms:
+    - request succeeded but expected side effect is missing
+    - order created but downstream task missing
+
+limits:
+  max_steps: 8
+  max_tool_calls: 12
+
+steps:
+  - id: locate_trace
+    tool: trace.lookup
+    required: false
+    purpose: confirm whether the request can be observed via trace
+
+  - id: inspect_core_path
+    tool: trace.inspect_spans
+    required: false
+    purpose: identify where the main flow stopped
+
+  - id: verify_main_persistence
+    tool: db.readonly_query
+    required: true
+    purpose: confirm whether the expected primary state was persisted
+
+  - id: inspect_idempotency_cache
+    tool: redis.inspect
+    required: false
+    purpose: detect stale cache or idempotency short-circuit
+
+decision_rules:
+  - id: trace_missing
+    when:
+      all:
+        - finding_type: trace_missing
+    conclusion: request_not_observable_via_trace
+    confidence: low
+
+  - id: not_persisted
+    when:
+      all:
+        - finding_type: db_row_missing
+    conclusion: request_did_not_reach_expected_persistence
+    confidence: medium
+
+  - id: cache_short_circuit
+    when:
+      all:
+        - finding_type: db_row_missing
+        - finding_type: cache_key_exists
+        - finding_type: cache_ttl_positive
+    conclusion: request_short_circuited_by_cache_or_idempotency
+    confidence: high
+
+output:
+  schema: incident_report
+  require_evidence: true

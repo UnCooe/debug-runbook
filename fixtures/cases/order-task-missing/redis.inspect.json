@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "key": "task:idempotent:order_123",
+  "exists": true,
+  "ttl_seconds": 1420,
+  "value_preview": {
+    "writer": "task-retry-guard",
+    "order_id": "order_123"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "ok": false,
+  "locator": {
+    "context_id": "request_4041",
+    "context_type": "request_id"
+  },
+  "reason": "trace_not_found"
+}

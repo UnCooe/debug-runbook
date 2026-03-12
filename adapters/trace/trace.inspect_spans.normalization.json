@@ -1,0 +1,15 @@
+{
+  "operation": "trace.inspect_spans",
+  "collection": {
+    "path": "missing_expected_spans",
+    "emit_per_item": {
+      "id_suffix_template": "span-missing-{{index}}",
+      "source": "trace",
+      "finding_type": "span_missing",
+      "summary_template": "Expected span {{item}} is missing from the observed trace.",
+      "confidence": 0.88,
+      "fields": ["service"],
+      "normalization_status": "complete"
+    }
+  }
+}

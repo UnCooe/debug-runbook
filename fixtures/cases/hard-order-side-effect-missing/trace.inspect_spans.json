@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "trace_id": "trace_order_901",
+  "service": "order-service",
+  "core_spans": [
+    { "name": "CreateOrder", "status": "ok", "duration_ms": 211 },
+    { "name": "PersistOrder", "status": "ok", "duration_ms": 41 }
+  ],
+  "missing_expected_spans": ["CreateSettlementTask"]
+}

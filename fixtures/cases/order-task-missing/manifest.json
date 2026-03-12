@@ -1,0 +1,23 @@
+{
+  "case_id": "order-task-missing",
+  "title": "Order created but task missing due to stale idempotency key",
+  "runbook": "request_not_effective",
+  "incident": {
+    "context_id": "order_123",
+    "context_type": "order_id",
+    "symptom": "Order was created, but no task was generated.",
+    "expected": "A task should be created and moved to pending state after order creation."
+  },
+  "expected": {
+    "runbook": "request_not_effective",
+    "primary_conclusion": "request_short_circuited_by_cache_or_idempotency",
+    "required_finding_types": [
+      "trace_found",
+      "db_row_found",
+      "db_row_missing",
+      "cache_key_exists",
+      "cache_ttl_positive",
+      "span_missing"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "locator": {
+    "context_id": "task_903",
+    "context_type": "task_id"
+  },
+  "trace_id": "trace_task_903",
+  "service": "task-service",
+  "entry_span": "FinalizeTask",
+  "duration_ms": 73,
+  "status": "ok"
+}

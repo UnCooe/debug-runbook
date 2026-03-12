@@ -1,0 +1,32 @@
+{
+  "operation": "trace.lookup",
+  "cases": [
+    {
+      "when": { "ok": true },
+      "emit": [
+        {
+          "id_suffix": "trace-found",
+          "source": "trace",
+          "finding_type": "trace_found",
+          "summary_template": "Trace {{trace_id}} found in {{service}}.",
+          "confidence": 0.95,
+          "fields": ["service"],
+          "normalization_status": "complete"
+        }
+      ]
+    },
+    {
+      "when": { "ok": false },
+      "emit": [
+        {
+          "id_suffix": "trace-missing",
+          "source": "trace",
+          "finding_type": "trace_missing",
+          "summary_template": "No trace was found for the provided locator.",
+          "confidence": 0.9,
+          "normalization_status": "complete"
+        }
+      ]
+    }
+  ]
+}

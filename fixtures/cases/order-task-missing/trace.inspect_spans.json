@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "trace_id": "trace_order_123",
+  "service": "order-service",
+  "core_spans": [
+    { "name": "OrderCreateFlow", "status": "ok", "duration_ms": 187 },
+    { "name": "PersistOrder", "status": "ok", "duration_ms": 34 }
+  ],
+  "missing_expected_spans": ["CreateTaskFlow"]
+}

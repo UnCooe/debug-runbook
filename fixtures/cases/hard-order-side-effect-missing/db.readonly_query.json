@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "query_name": "order_and_settlement_task_state",
+  "entity_id": "order_901",
+  "rows": {
+    "order_main": [
+      {
+        "order_id": "order_901",
+        "status": "created"
+      }
+    ],
+    "settlement_task": []
+  }
+}

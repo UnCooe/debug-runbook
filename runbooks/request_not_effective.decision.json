@@ -1,0 +1,74 @@
+{
+  "name": "request_not_effective",
+  "confirmed_fact_templates": [
+    { "finding_type": "trace_found", "text": "Trace data confirms the request or entity entered an observable service flow." },
+    { "finding_type": "trace_missing", "text": "No matching trace was found for the provided incident locator." },
+    { "finding_type": "db_row_found", "text": "A related persisted record exists in the database." },
+    { "finding_type": "db_row_missing", "text": "At least one expected persisted record is missing." },
+    { "finding_type": "cache_key_exists", "text": "A related cache or idempotency key exists." },
+    { "finding_type": "cache_key_missing", "text": "The related cache key is absent." },
+    { "finding_type": "cache_ttl_positive", "text": "The related cache key still has a positive TTL." },
+    { "finding_type": "span_missing", "text": "An expected trace span is missing from the observed flow." }
+  ],
+  "rules": [
+    {
+      "id": "cache_short_circuit",
+      "all": ["db_row_missing", "cache_key_exists", "cache_ttl_positive"],
+      "conclusion": "request_short_circuited_by_cache_or_idempotency",
+      "confidence": 0.88,
+      "root_cause": "The request was most likely short-circuited by cache or idempotency state before the expected side effect executed.",
+      "alternative_hypotheses": [
+        "The task dispatch step may be missing from the code path for this domain variant."
+      ],
+      "recommended_next_actions": [
+        "Check which workflow wrote the idempotency or cache key.",
+        "Verify whether retry or guard logic pre-created the key.",
+        "If operationally safe, clear the stale key and replay the flow manually."
+      ]
+    },
+    {
+      "id": "trace_missing",
+      "all": ["trace_missing", "db_row_missing"],
+      "conclusion": "request_not_observable_via_trace",
+      "confidence": 0.66,
+      "root_cause": "The request could not be confirmed in trace data and did not reach the expected persisted state.",
+      "alternative_hypotheses": [
+        "Trace collection may be incomplete even if the request briefly reached the application."
+      ],
+      "recommended_next_actions": [
+        "Confirm whether tracing is sampled, missing, or misconfigured for this entrypoint.",
+        "Check ingress and application logs around the incident window.",
+        "Verify whether the request was rejected before application code executed."
+      ]
+    },
+    {
+      "id": "not_persisted",
+      "all": ["db_row_missing"],
+      "conclusion": "request_did_not_reach_expected_persistence",
+      "confidence": 0.62,
+      "root_cause": "The request appears to have stopped before the expected persistence step completed.",
+      "alternative_hypotheses": [
+        "A domain validation rule may have rejected the request before insert."
+      ],
+      "recommended_next_actions": [
+        "Inspect validation and pre-persistence guard logic.",
+        "Check whether the request was rejected by business rules before insert.",
+        "Add a more specific runbook branch for this domain flow."
+      ]
+    }
+  ],
+  "fallback": {
+    "id": "fallback",
+    "conclusion": "investigation_inconclusive",
+    "confidence": 0.4,
+    "root_cause": "The available evidence is insufficient to isolate a single root cause.",
+    "alternative_hypotheses": [
+      "The missing signal may exist in MQ or log data that is not part of the MVP fixture set."
+    ],
+    "recommended_next_actions": [
+      "Collect one more discriminating signal such as MQ or log evidence.",
+      "Narrow the incident window and retry the investigation.",
+      "Add a more specialized runbook for this symptom pattern."
+    ]
+  }
+}

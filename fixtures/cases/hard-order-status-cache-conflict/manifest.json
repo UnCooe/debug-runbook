@@ -1,0 +1,23 @@
+{
+  "case_id": "hard-order-status-cache-conflict",
+  "title": "Hard case: order status is incorrect in API because the cached view still returns pending",
+  "difficulty": "hard",
+  "runbook": "cache_stale",
+  "incident": {
+    "context_id": "order_902",
+    "context_type": "order_id",
+    "symptom": "Order status is incorrect in the API and still returns pending.",
+    "expected": "The order should be paid and the returned status should match persistence."
+  },
+  "expected": {
+    "runbook": "cache_stale",
+    "primary_conclusion": "cache_value_conflicts_with_persisted_state",
+    "required_finding_types": [
+      "trace_found",
+      "db_row_found",
+      "cache_key_exists",
+      "cache_ttl_positive",
+      "status_mismatch"
+    ]
+  }
+}

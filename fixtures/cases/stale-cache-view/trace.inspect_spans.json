@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "trace_id": "trace_task_777",
+  "service": "task-service",
+  "core_spans": [
+    { "name": "UpdateTaskStatus", "status": "ok", "duration_ms": 95 },
+    { "name": "InvalidateTaskViewCache", "status": "error", "duration_ms": 8 }
+  ],
+  "missing_expected_spans": []
+}

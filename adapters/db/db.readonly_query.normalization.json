@@ -1,0 +1,13 @@
+{
+  "operation": "db.readonly_query",
+  "table_rows": {
+    "path": "rows",
+    "found_finding_type": "db_row_found",
+    "missing_finding_type": "db_row_missing",
+    "found_summary_template": "Table {{table}} contains a matching row.",
+    "missing_summary_template": "Table {{table}} has no matching row.",
+    "confidence": 0.96,
+    "normalization_status": "complete",
+    "field_name": "table"
+  }
+}

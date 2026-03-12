@@ -1,0 +1,28 @@
+{
+  "example": "This negative sample is not loaded automatically.",
+  "runbook": "broken_runbook",
+  "decision": {
+    "name": "broken_runbook",
+    "confirmed_fact_templates": [
+      { "finding_type": "phantom_finding", "text": "This should fail." }
+    ],
+    "rules": [
+      {
+        "id": "bad_rule",
+        "all": ["phantom_finding"],
+        "conclusion": "bad_conclusion",
+        "confidence": 0.1,
+        "root_cause": "Invalid finding type should be rejected.",
+        "recommended_next_actions": ["Fix the metadata."]
+      }
+    ],
+    "fallback": {
+      "id": "fallback",
+      "conclusion": "investigation_inconclusive",
+      "confidence": 0.4,
+      "root_cause": "Fallback",
+      "recommended_next_actions": ["Fix the metadata."]
+    }
+  },
+  "expected_failure": "Unknown finding_type phantom_finding"
+}

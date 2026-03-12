@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "key": "settlement:idempotent:order_901",
+  "exists": true,
+  "ttl_seconds": 1800,
+  "value_preview": {
+    "order_id": "order_901",
+    "writer": "settlement-task-guard"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "case_id": "hard-task-state-wrong",
+  "title": "Hard case: task state is wrong but there is no explicit cache wording in the symptom",
+  "difficulty": "hard",
+  "runbook": "state_abnormal",
+  "incident": {
+    "context_id": "task_903",
+    "context_type": "task_id",
+    "symptom": "Task state is wrong and still pending after completion.",
+    "expected": "The task should be finished."
+  },
+  "expected": {
+    "runbook": "state_abnormal",
+    "primary_conclusion": "stale_or_conflicting_cache_view",
+    "required_finding_types": [
+      "trace_found",
+      "db_row_found",
+      "cache_key_exists",
+      "cache_ttl_positive",
+      "status_mismatch"
+    ]
+  }
+}

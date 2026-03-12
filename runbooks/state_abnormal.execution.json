@@ -1,0 +1,8 @@
+{
+  "name": "state_abnormal",
+  "operations": [
+    "db.lookup_entity",
+    "trace.lookup",
+    "redis.inspect"
+  ]
+}

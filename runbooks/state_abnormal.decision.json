@@ -1,0 +1,42 @@
+{
+  "name": "state_abnormal",
+  "confirmed_fact_templates": [
+    { "finding_type": "trace_found", "text": "Trace data confirms the request or entity entered an observable service flow." },
+    { "finding_type": "db_row_found", "text": "A related persisted record exists in the database." },
+    { "finding_type": "cache_key_exists", "text": "A related cache or idempotency key exists." },
+    { "finding_type": "cache_ttl_positive", "text": "The related cache key still has a positive TTL." },
+    { "finding_type": "status_mismatch", "text": "The cached state and persisted state do not match." },
+    { "finding_type": "cache_key_missing", "text": "The related cache key is absent." }
+  ],
+  "rules": [
+    {
+      "id": "cache_view_conflict",
+      "all": ["cache_key_exists", "status_mismatch"],
+      "conclusion": "stale_or_conflicting_cache_view",
+      "confidence": 0.88,
+      "root_cause": "The persisted state and cache view conflict, which points to stale or inconsistent cache state.",
+      "alternative_hypotheses": [
+        "The write path may update persistence and cache through different timing windows."
+      ],
+      "recommended_next_actions": [
+        "Inspect cache invalidation logic and any recent partial failures.",
+        "Compare the read path against the write path for the same entity.",
+        "Add a dedicated domain runbook if this pattern is frequent."
+      ]
+    }
+  ],
+  "fallback": {
+    "id": "fallback",
+    "conclusion": "investigation_inconclusive",
+    "confidence": 0.4,
+    "root_cause": "The available evidence is insufficient to isolate a single root cause.",
+    "alternative_hypotheses": [
+      "The missing signal may exist in MQ or log data that is not part of the MVP fixture set."
+    ],
+    "recommended_next_actions": [
+      "Collect one more discriminating signal such as MQ or log evidence.",
+      "Narrow the incident window and retry the investigation.",
+      "Add a more specialized runbook for this symptom pattern."
+    ]
+  }
+}

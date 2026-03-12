@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AdapterNormalizationMetadata",
+  "type": "object",
+  "required": ["operation"],
+  "properties": {
+    "operation": { "type": "string" },
+    "cases": { "type": "array" },
+    "collection": { "type": "object" },
+    "table_rows": { "type": "object" }
+  },
+  "additionalProperties": false,
+  "anyOf": [
+    { "required": ["cases"] },
+    { "required": ["collection"] },
+    { "required": ["table_rows"] }
+  ]
+}

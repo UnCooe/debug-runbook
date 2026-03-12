@@ -1,0 +1,20 @@
+{
+  "name": "cache_stale",
+  "priority": 3,
+  "context_types": ["request_id", "order_id", "task_id"],
+  "positive_signals": [
+    { "pattern": "cache", "weight": 2.5 },
+    { "pattern": "stale", "weight": 2.5 },
+    { "pattern": "returns", "weight": 2.5 },
+    { "pattern": "still returns", "weight": 2.5 },
+    { "pattern": "does not match persistence", "weight": 2.5 },
+    { "pattern": "returned status should match persistence", "weight": 1.5 },
+    { "pattern": "match persistence", "weight": 1.5 },
+    { "pattern": "reflect latest", "weight": 1.5 },
+    { "pattern": "(cache|stale|still returns|does not match)", "weight": 1.5, "mode": "regex" }
+  ],
+  "negative_signals": [
+    { "pattern": "not generated", "weight": -2 },
+    { "pattern": "never created", "weight": -2 }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "state_abnormal",
+  "priority": 1,
+  "context_types": ["order_id", "task_id", "user_id"],
+  "positive_signals": [
+    { "pattern": "status", "weight": 2.5 },
+    { "pattern": "unexpected", "weight": 2.5 },
+    { "pattern": "incorrect", "weight": 2.5 },
+    { "pattern": "still pending", "weight": 2.5 },
+    { "pattern": "wrong", "weight": 2.5 },
+    { "pattern": "status should be", "weight": 1.5 },
+    { "pattern": "state should be", "weight": 1.5 },
+    { "pattern": "finished", "weight": 1.5 },
+    { "pattern": "paid", "weight": 1.5 },
+    { "pattern": "(status|incorrect|wrong|still pending)", "weight": 1.5, "mode": "regex" }
+  ],
+  "negative_signals": [
+    { "pattern": "not generated", "weight": -2 },
+    { "pattern": "not created", "weight": -2 },
+    { "pattern": "never created", "weight": -2 },
+    { "pattern": "should be created", "weight": -2 }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DerivedEvidencePolicy",
+  "type": "object",
+  "required": ["name", "rules"],
+  "properties": {
+    "name": { "type": "string" },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "emit"],
+        "properties": {
+          "id": { "type": "string" },
+          "sources": { "type": "array", "items": { "type": "string" } },
+          "when": { "type": "object" },
+          "emit": {
+            "type": "object",
+            "required": ["id_suffix", "source", "finding_type", "summary_template", "confidence", "raw_ref", "normalization_status"],
+            "properties": {
+              "id_suffix": { "type": "string" },
+              "source": { "type": "string" },
+              "finding_type": { "type": "string" },
+              "summary_template": { "type": "string" },
+              "confidence": { "type": "number" },
+              "raw_ref": { "type": "string" },
+              "normalization_status": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

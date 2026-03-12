@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IncidentInput",
+  "type": "object",
+  "required": ["context_id", "context_type", "symptom", "expected"],
+  "properties": {
+    "context_id": {
+      "type": "string"
+    },
+    "context_type": {
+      "type": "string",
+      "enum": ["trace_id", "request_id", "order_id", "task_id", "message_id", "user_id"]
+    },
+    "symptom": {
+      "type": "string"
+    },
+    "expected": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

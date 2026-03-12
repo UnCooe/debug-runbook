@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "locator": {
+    "context_id": "order_902",
+    "context_type": "order_id"
+  },
+  "trace_id": "trace_order_902",
+  "service": "payment-service",
+  "entry_span": "MarkOrderPaid",
+  "duration_ms": 88,
+  "status": "ok"
+}

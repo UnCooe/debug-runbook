@@ -1,0 +1,34 @@
+{
+  "operation": "redis.inspect",
+  "cases": [
+    {
+      "emit": [
+        {
+          "id_suffix": "redis-exists",
+          "source": "redis",
+          "finding_type_true": "cache_key_exists",
+          "finding_type_false": "cache_key_missing",
+          "condition_path": "exists",
+          "summary_template_true": "Cache key {{key}} exists.",
+          "summary_template_false": "Cache key {{key}} does not exist.",
+          "confidence": 0.97,
+          "fields": ["key"],
+          "normalization_status": "complete"
+        },
+        {
+          "id_suffix": "redis-ttl-positive",
+          "source": "redis",
+          "finding_type": "cache_ttl_positive",
+          "requires": {
+            "exists": true,
+            "ttl_seconds_gt": 0
+          },
+          "summary_template": "Cache key {{key}} has positive TTL {{ttl_seconds}}s.",
+          "confidence": 0.97,
+          "fields": ["key"],
+          "normalization_status": "complete"
+        }
+      ]
+    }
+  ]
+}

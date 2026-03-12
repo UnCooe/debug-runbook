@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "query_name": "task_state",
+  "entity_id": "task_777",
+  "rows": {
+    "task_main": [
+      {
+        "task_id": "task_777",
+        "status": "finished"
+      }
+    ]
+  }
+}

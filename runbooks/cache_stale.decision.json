@@ -1,0 +1,45 @@
+{
+  "name": "cache_stale",
+  "confirmed_fact_templates": [
+    { "finding_type": "trace_found", "text": "Trace data confirms the request or entity entered an observable service flow." },
+    { "finding_type": "db_row_found", "text": "A related persisted record exists in the database." },
+    { "finding_type": "cache_key_exists", "text": "A related cache or idempotency key exists." },
+    { "finding_type": "cache_ttl_positive", "text": "The related cache key still has a positive TTL." },
+    { "finding_type": "status_mismatch", "text": "The cached state and persisted state do not match." },
+    { "finding_type": "cache_key_missing", "text": "The related cache key is absent." }
+  ],
+  "default_confirmed_facts": [
+    "The incident is being evaluated through the cache-versus-persistence runbook."
+  ],
+  "rules": [
+    {
+      "id": "cache_db_mismatch",
+      "all": ["cache_key_exists", "status_mismatch"],
+      "conclusion": "cache_value_conflicts_with_persisted_state",
+      "confidence": 0.88,
+      "root_cause": "The cache value conflicts with the persisted state and is the most likely reason for the incorrect view.",
+      "alternative_hypotheses": [
+        "The API may be reading from an outdated replica or alternate cache namespace."
+      ],
+      "recommended_next_actions": [
+        "Inspect cache invalidation or refresh logic for the entity.",
+        "Check whether the cache write path lags behind the database commit.",
+        "If safe, invalidate the stale key and verify the API view again."
+      ]
+    }
+  ],
+  "fallback": {
+    "id": "fallback",
+    "conclusion": "investigation_inconclusive",
+    "confidence": 0.4,
+    "root_cause": "The available evidence is insufficient to isolate a single root cause.",
+    "alternative_hypotheses": [
+      "The missing signal may exist in MQ or log data that is not part of the MVP fixture set."
+    ],
+    "recommended_next_actions": [
+      "Collect one more discriminating signal such as MQ or log evidence.",
+      "Narrow the incident window and retry the investigation.",
+      "Add a more specialized runbook for this symptom pattern."
+    ]
+  }
+}
