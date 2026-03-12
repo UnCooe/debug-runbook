@@ -18,6 +18,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
     "check": "node scripts/check.mjs",
     "check:demo-fail": "node scripts/check-failure-demo.mjs",
     "demo:order-task-missing": "node scripts/run-demo.mjs fixtures/cases/order-task-missing",
@@ -37,6 +39,8 @@
   "devDependencies": {
     "@types/node": "^22.13.10",
     "@types/pg": "^8.11.11",
-    "typescript": "^5.8.2"
+    "@vitest/coverage-v8": "^4.0.18",
+    "typescript": "^5.8.2",
+    "vitest": "^4.0.18"
   }
 }

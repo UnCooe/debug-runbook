@@ -138,7 +138,8 @@ async function runStep(
       return { ok: false, evidence: [], errors: [`[${id}] 无法关联到 trace_id`] };
     }
 
-    const result = await runLangfuseAdapter(config.adapters.langfuse, traceId, entityId);
+    const client = new LangfuseClient(config.adapters.langfuse);
+    const result = await runLangfuseAdapter(client, traceId, entityId);
     return { ok: result.ok, evidence: result.evidence, errors: result.errors };
   }
 

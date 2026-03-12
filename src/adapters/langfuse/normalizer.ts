@@ -1,7 +1,7 @@
 // Langfuse Adapter Normalizer
 // 将 Langfuse 原始 API 响应转换为标准 Evidence 对象
-import type { EvidenceItem, LangfuseConfig } from '../../types/index.js';
-import { LangfuseClient, type LangfuseTrace, type LangfuseObservation } from './client.js';
+import type { EvidenceItem } from '../../types/index.js';
+import type { LangfuseClient, LangfuseTrace, LangfuseObservation } from './client.js';
 
 export interface LangfuseAdapterResult {
   ok: boolean;
@@ -16,11 +16,10 @@ export interface LangfuseAdapterResult {
 }
 
 export async function runLangfuseAdapter(
-  config: LangfuseConfig,
+  client: LangfuseClient,
   traceId: string,
   entityId: string,
 ): Promise<LangfuseAdapterResult> {
-  const client = new LangfuseClient(config);
   const timestamp = new Date().toISOString();
   const errors: string[] = [];
 
