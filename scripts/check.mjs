@@ -1,6 +1,7 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, access } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse as parseYaml } from 'yaml';
 
 const __filename = fileURLToPath(import.meta.url);
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;
@@ -79,6 +80,15 @@ export async function runChecks(root = process.cwd()) {
   }
 
   await validateFixtures(fixturesDir, runbookNames, failures);
+
+  // 新增：校验 Runbook YAML steps.params 格式
+  for (const runbookName of runbookNames) {
+    await validateRunbookYamlSteps(path.join(runbookDir, `${runbookName}.yaml`), runbookName, failures);
+  }
+
+  // 新增：校验 dist/ 编译产物存在（防止忘记 pnpm build）
+  await validateDistBuilt(root, failures);
+
   return failures;
 }
 
@@ -219,5 +229,59 @@ async function loadJson(filePath, failures, required = false) {
   } catch {
     failures.push(`${required ? 'Missing or invalid' : 'Invalid'} JSON file: ${filePath}`);
     return null;
+  }
+}
+
+/** 校验 Runbook YAML 中每个 step 的 params 格式 */
+async function validateRunbookYamlSteps(yamlPath, runbookName, failures) {
+  let yaml;
+  try {
+    const content = await readFile(yamlPath, 'utf8');
+    yaml = parseYaml(content);
+  } catch {
+    failures.push(`Cannot parse YAML for runbook ${runbookName}: ${yamlPath}`);
+    return;
+  }
+
+  const VALID_TOOL_PREFIXES = ['trace.', 'db.', 'redis.'];
+  const KEY_TEMPLATE_RE = /^[a-zA-Z0-9_:.-]*(\{\{context_id\}\})?[a-zA-Z0-9_:.-]*$/;
+
+  for (const step of yaml.steps ?? []) {
+    const { id, tool, params } = step;
+
+    // 校验 tool 前缀合法性
+    const validTool = VALID_TOOL_PREFIXES.some((prefix) => tool?.startsWith(prefix));
+    if (!validTool) {
+      failures.push(`Runbook ${runbookName} step [${id}]: unknown tool prefix "${tool}". Must start with trace./db./redis.`);
+    }
+
+    if (!params) continue;
+
+    // db 参数校验
+    if (tool?.startsWith('db.')) {
+      if (params.table && !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(params.table)) {
+        failures.push(`Runbook ${runbookName} step [${id}]: params.table "${params.table}" is not a valid identifier.`);
+      }
+      if (params.match_column && !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(params.match_column)) {
+        failures.push(`Runbook ${runbookName} step [${id}]: params.match_column "${params.match_column}" is not a valid identifier.`);
+      }
+    }
+
+    // redis key_template 校验
+    if (tool?.startsWith('redis.') && params.key_template) {
+      if (!KEY_TEMPLATE_RE.test(params.key_template)) {
+        failures.push(`Runbook ${runbookName} step [${id}]: params.key_template "${params.key_template}" has invalid format. Use alphanumeric, colon, dash, dot, or {{context_id}}.`);
+      }
+    }
+  }
+}
+
+/** 检测 dist/mcp/server.js 是否存在，提示团队成员需要先 pnpm build */
+async function validateDistBuilt(root, failures) {
+  const entryPoint = path.join(root, 'dist', 'mcp', 'server.js');
+  try {
+    await access(entryPoint);
+  } catch {
+    failures.push('dist/mcp/server.js not found. Run "pnpm build" before using the MCP server.');
   }
 }
