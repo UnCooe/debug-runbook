@@ -1,14 +1,14 @@
-# agent-debugger 配置示例
-# 复制此文件为 agent-debugger.config.yaml 并填入真实凭据
+# agent-debugger config example
+# Copy this file to agent-debugger.config.yaml and fill in your real credentials
 
 adapters:
   langfuse:
     # Langfuse Cloud: https://cloud.langfuse.com
-    # Self-hosted: 填入你的私有部署地址
+    # Self-hosted: fill in your private deployment URL
     base_url: https://cloud.langfuse.com
     secret_key: ${LANGFUSE_SECRET_KEY}
     public_key: ${LANGFUSE_PUBLIC_KEY}
-    # 只提取这些字段进入 Evidence，防止 token 爆炸
+    # Only extract these fields into Evidence to prevent token explosion
     span_field_allowlist:
       - input
       - output
@@ -20,7 +20,7 @@ adapters:
   db:
     type: postgres
     connection_string: ${DATABASE_URL}
-    # 只允许 SELECT 这些表，其他表拒绝访问
+    # Only allow SELECT from these tables, reject all others
     allowed_tables:
       - orders
       - tasks
@@ -29,7 +29,7 @@ adapters:
 
   redis:
     url: ${REDIS_URL}
-    # 只允许访问匹配这些前缀的 key
+    # Only allow access to keys matching these prefixes
     key_prefix_allowlist:
       - "idempotency:"
       - "cache:order:"
@@ -37,11 +37,11 @@ adapters:
       - "session:"
 
 runbooks:
-  # 内置 runbook（默认已包含，无需配置）
+  # Built-in runbooks (included by default, no need to configure)
   # - ./runbooks/request_not_effective.yaml
   # - ./runbooks/cache_stale.yaml
   # - ./runbooks/state_abnormal.yaml
 
-  # 在这里追加你的团队自定义 runbook
+  # Append your team's custom runbooks here
   # - ./team-runbooks/order_task_missing.yaml
   # - ./team-runbooks/payment_not_settled.yaml

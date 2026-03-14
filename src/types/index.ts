@@ -1,8 +1,8 @@
-// 全局类型定义 - 基于 Zod Schema 保证运行时类型安全
+// Global type definitions - Ensuring runtime type safety via Zod Schema
 import { z } from 'zod';
 
 // ─────────────────────────────────────────
-// Evidence（证据对象）
+// Evidence Object
 // ─────────────────────────────────────────
 
 export const ConfidenceSchema = z.union([
@@ -19,7 +19,7 @@ export const EvidenceItemSchema = z.object({
   summary: z.string(),
   confidence: ConfidenceSchema,
   raw_ref: z.string(),
-  // 可选字段
+  // Optional fields
   service: z.string().optional(),
   span_id: z.string().optional(),
   table: z.string().optional(),
@@ -32,7 +32,7 @@ export const EvidenceItemSchema = z.object({
 export type EvidenceItem = z.infer<typeof EvidenceItemSchema>;
 
 // ─────────────────────────────────────────
-// Incident Input（事故输入）
+// Incident Input
 // ─────────────────────────────────────────
 
 export const ContextTypeSchema = z.enum([
@@ -45,17 +45,17 @@ export const ContextTypeSchema = z.enum([
 ]);
 
 export const IncidentInputSchema = z.object({
-  context_id: z.string().min(1, '上下文 ID 不能为空'),
+  context_id: z.string().min(1, 'Context ID cannot be empty'),
   context_type: ContextTypeSchema,
-  symptom: z.string().min(1, '症状描述不能为空'),
-  expected: z.string().min(1, '期望行为不能为空'),
+  symptom: z.string().min(1, 'Symptom description cannot be empty'),
+  expected: z.string().min(1, 'Expected behavior cannot be empty'),
 });
 
 export type IncidentInput = z.infer<typeof IncidentInputSchema>;
 export type ContextType = z.infer<typeof ContextTypeSchema>;
 
 // ─────────────────────────────────────────
-// Incident Report（事故报告）
+// Incident Report
 // ─────────────────────────────────────────
 
 export const IncidentReportSchema = z.object({
@@ -75,7 +75,7 @@ export const IncidentReportSchema = z.object({
 export type IncidentReport = z.infer<typeof IncidentReportSchema>;
 
 // ─────────────────────────────────────────
-// Adapter 通用输出
+// Generic Adapter Output
 // ─────────────────────────────────────────
 
 export const AdapterResponseSchema = z.object({
@@ -89,7 +89,7 @@ export const AdapterResponseSchema = z.object({
 export type AdapterResponse = z.infer<typeof AdapterResponseSchema>;
 
 // ─────────────────────────────────────────
-// 配置 Schema
+// Configuration Schema
 // ─────────────────────────────────────────
 
 export const LangfuseConfigSchema = z.object({

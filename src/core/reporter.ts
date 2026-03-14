@@ -1,4 +1,4 @@
-// Incident Reporter - 从决策结果和证据列表生成最终事故报告
+// Incident Reporter - Generates final incident report from decision results and evidence
 import type { EvidenceItem, IncidentInput, IncidentReport } from '../types/index.js';
 
 interface DecisionRule {
@@ -41,7 +41,7 @@ export interface DecisionResult {
 }
 
 /**
- * 根据决策元数据和证据列表，确认最终结论
+ * Determine final conclusion based on decision metadata and evidence list
  */
 export function determineConclusion(
   decision: DecisionMetadata,
@@ -56,26 +56,26 @@ export function determineConclusion(
         rule_id: rule.id,
         conclusion: rule.conclusion,
         confidence: rule.confidence ?? 0.4,
-        root_cause: rule.root_cause ?? '现有证据不足以定位单一根因。',
+        root_cause: rule.root_cause ?? 'Current evidence is insufficient to isolate a single root cause.',
         alternative_hypotheses: rule.alternative_hypotheses ?? [],
         recommended_next_actions: rule.recommended_next_actions ?? [],
       };
     }
   }
 
-  // 未匹配任何规则，使用 fallback
+  // None of the rules matched, use fallback
   return {
     rule_id: decision.fallback?.id ?? 'fallback',
     conclusion: decision.fallback?.conclusion ?? 'investigation_inconclusive',
     confidence: decision.fallback?.confidence ?? 0.4,
-    root_cause: decision.fallback?.root_cause ?? '现有证据不足以定位单一根因。',
+    root_cause: decision.fallback?.root_cause ?? 'Current evidence is insufficient to isolate a single root cause.',
     alternative_hypotheses: decision.fallback?.alternative_hypotheses ?? [],
     recommended_next_actions: decision.fallback?.recommended_next_actions ?? [],
   };
 }
 
 /**
- * 构建最终 IncidentReport
+ * Build the final IncidentReport
  */
 export function buildReport(
   incident: IncidentInput,
@@ -87,7 +87,7 @@ export function buildReport(
   const confirmedFacts = buildConfirmedFacts(decision, evidence);
 
   return {
-    incident_summary: `${incident.symptom}。期望行为：${incident.expected}`,
+    incident_summary: `${incident.symptom}. Expected behavior: ${incident.expected}`,
     selected_runbook: selectedRunbook,
     confirmed_facts: confirmedFacts,
     most_likely_root_cause: decisionResult.root_cause,
@@ -114,6 +114,6 @@ function buildConfirmedFacts(decision: DecisionMetadata, evidence: EvidenceItem[
     facts.push(item);
   }
 
-  // 去重
+  // Deduplicate
   return [...new Set(facts)];
 }

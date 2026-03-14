@@ -1,5 +1,5 @@
-// Runbook Selector - 基于信号权重匹配选择最合适的 Runbook
-// 逻辑移植自 scripts/runbook-selector.mjs，增加了 TypeScript 类型
+// Runbook Selector - Selects the most appropriate Runbook based on signal weights
+// Logic ported from scripts/runbook-selector.mjs, with TypeScript types added
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +7,7 @@ import type { IncidentInput } from '../types/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// 内置 runbook 目录（项目根/runbooks/）
+// Built-in runbooks directory (project root/runbooks/)
 const BUILTIN_RUNBOOK_DIR = path.resolve(__dirname, '..', '..', 'runbooks');
 const CONTEXT_WEIGHT = 3;
 
@@ -58,7 +58,7 @@ export async function listRunbooks(extraRunbookDirs: string[] = []): Promise<str
   return registry.map((item) => item.name);
 }
 
-// 清除缓存（测试时需要）
+// Clear cache (needed for tests)
 export function clearRegistryCache(): void {
   registryCache = null;
 }
@@ -83,7 +83,7 @@ async function loadRunbookRegistry(extraRunbookDirs: string[]): Promise<RunbookS
       );
       allMetadata.push(...loaded);
     } catch {
-      // 目录不存在或读取失败，跳过
+      // Directory does not exist or read failed, skip
     }
   }
 
@@ -110,7 +110,7 @@ function scoreRunbook(runbook: RunbookSelectorMetadata, incident: IncidentInput)
 
   for (const signal of runbook.negative_signals ?? []) {
     if (matchesSignal(signal, haystack)) {
-      score += signal.weight; // weight 为负数
+      score += signal.weight; // weight is negative
       matchedSignals.push(`${signal.pattern}(${signal.weight})`);
     }
   }

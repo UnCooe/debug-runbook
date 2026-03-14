@@ -1,6 +1,6 @@
-// Executor - Runbook 执行调度器
-// 根据选定的 Runbook 的 steps 声明动态调用对应 Adapter
-// 所有 adapter 参数（table、key 等）均从 step.params 读取，不硬编码
+// Executor - Runbook Execution Scheduler
+// Dynamically invokes the corresponding Adapter based on the selected Runbook's steps
+// All adapter parameters (table, key, etc.) are read from step.params, not hardcoded
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +19,7 @@ const __dirname = path.dirname(__filename);
 const RUNBOOK_DIR = path.resolve(__dirname, '..', '..', 'runbooks');
 
 // ─────────────────────────────────────────
-// Runbook YAML 类型定义
+// Runbook YAML Type Definitions
 // ─────────────────────────────────────────
 
 interface RunbookStep {
@@ -28,12 +28,12 @@ interface RunbookStep {
   required: boolean;
   purpose: string;
   params?: {
-    // DB 参数
+    // DB Parameters
     table?: string;
     match_column?: string;
-    // Redis 参数（支持 {{context_id}} 插值）
+    // Redis Parameters (Supports {{context_id}} interpolation)
     key_template?: string;
-    // Trace 参数：若 context_type 非 trace_id，用于在 DB 中关联查询 trace_id
+    // Trace Parameters: If context_type is not trace_id, used to query associated trace_id in DB
     trace_ref_column?: string;
   };
 }
@@ -78,19 +78,19 @@ export interface ExecutionContext {
 }
 
 // ─────────────────────────────────────────
-// 主入口
+// Main Entrypoint
 // ─────────────────────────────────────────
 
 export async function executeRunbook(ctx: ExecutionContext): Promise<IncidentReport> {
   const { incident, config, selectedRunbook } = ctx;
 
-  // 加载 YAML 和 JSON 元数据
+  // Load YAML and JSON metadata
   const [runbookYaml, decision] = await Promise.all([
     loadRunbookYaml(selectedRunbook),
     loadRunbookJson<DecisionMetadata>(selectedRunbook, 'decision'),
   ]);
 
-  // 按 YAML steps 顺序执行（兼容旧 execution.json operation 列表）
+  // Execute sequentially per YAML steps (backward compatible with execution.json operations)
   const steps = runbookYaml.steps ?? (await getFallbackSteps(selectedRunbook));
   const evidence: EvidenceItem[] = [];
 
@@ -98,22 +98,22 @@ export async function executeRunbook(ctx: ExecutionContext): Promise<IncidentRep
     const result = await runStep(step, incident, config);
     evidence.push(...result.evidence);
     if (!result.ok && step.required) {
-      // 必选步骤失败：记录 warning，不中止（尽量收集更多证据）
-      evidence.push(makeErrorEvidence(step.id, result.errors[0] ?? '未知错误', incident.context_id));
+      // Required step failed: log warning, do not abort (try to collect more evidence)
+      evidence.push(makeErrorEvidence(step.id, result.errors[0] ?? 'Unknown error', incident.context_id));
     }
   }
 
-  // 跨源派生证据
+  // Derive cross-source evidence
   evidence.push(...deriveCrossSourceEvidence(evidence, incident.context_id));
 
-  // 去重 → 决策 → 报告
+  // Deduplicate -> Decision -> Report
   const deduped = dedupeEvidence(evidence);
   const decisionResult = determineConclusion(decision, deduped);
   return buildReport(incident, selectedRunbook, decision, deduped, decisionResult);
 }
 
 // ─────────────────────────────────────────
-// Step 分发：根据 tool 类型 + step.params 调用对应 adapter
+// Step Dispatching: Call adapter based on tool type + step.params
 // ─────────────────────────────────────────
 
 async function runStep(
@@ -124,18 +124,18 @@ async function runStep(
   const { tool, params, id } = step;
   const entityId = incident.context_id;
 
-  // ── Trace 操作 ──────────────────────────
+  // ── Trace Operations ──────────────────────────
   if (tool.startsWith('trace.')) {
     if (!config.adapters.langfuse) {
-      return { ok: false, evidence: [], errors: [`[${id}] langfuse adapter 未配置`] };
+      return { ok: false, evidence: [], errors: [`[${id}] langfuse adapter not configured`] };
     }
-    // 若 context_type 已是 trace_id 直接用，否则需要先查 DB 关联
+    // Use directly if context_type is already trace_id, otherwise query DB for mapping
     const traceId = incident.context_type === 'trace_id'
       ? entityId
       : await resolveTraceId(incident, config, params?.trace_ref_column ?? 'trace_id');
 
     if (!traceId) {
-      return { ok: false, evidence: [], errors: [`[${id}] 无法关联到 trace_id`] };
+      return { ok: false, evidence: [], errors: [`[${id}] cannot resolve to trace_id`] };
     }
 
     const client = new LangfuseClient(config.adapters.langfuse);
@@ -143,10 +143,10 @@ async function runStep(
     return { ok: result.ok, evidence: result.evidence, errors: result.errors };
   }
 
-  // ── DB 操作 ──────────────────────────────
+  // ── DB Operations ──────────────────────────────
   if (tool.startsWith('db.')) {
     if (!config.adapters.db) {
-      return { ok: false, evidence: [], errors: [`[${id}] db adapter 未配置`] };
+      return { ok: false, evidence: [], errors: [`[${id}] db adapter not configured`] };
     }
     const table = params?.table ?? 'orders';
     const matchColumn = params?.match_column ?? incident.context_type;
@@ -156,12 +156,12 @@ async function runStep(
     return { ok: result.ok, evidence: result.evidence, errors: result.errors };
   }
 
-  // ── Redis 操作 ──────────────────────────
+  // ── Redis Operations ──────────────────────────
   if (tool.startsWith('redis.')) {
     if (!config.adapters.redis) {
-      return { ok: false, evidence: [], errors: [`[${id}] redis adapter 未配置`] };
+      return { ok: false, evidence: [], errors: [`[${id}] redis adapter not configured`] };
     }
-    // 支持 {{context_id}} 插值
+    // Supports {{context_id}} interpolation
     const keyTemplate = params?.key_template ?? `{{context_id}}`;
     const key = keyTemplate.replace(/\{\{context_id\}\}/g, entityId);
 
@@ -171,12 +171,12 @@ async function runStep(
     return { ok: result.ok, evidence: result.evidence, errors: result.errors };
   }
 
-  return { ok: false, evidence: [], errors: [`[${id}] 未知操作类型: ${tool}`] };
+  return { ok: false, evidence: [], errors: [`[${id}] Unknown tool type: ${tool}`] };
 }
 
 // ─────────────────────────────────────────
-// trace_id 关联查询（context_type != trace_id 的情况）
-// 例如：order_id → 先查 DB 的 trace_id 列
+// trace_id mapping query (when context_type != trace_id)
+// Example: order_id -> first check trace_id column in DB
 // ─────────────────────────────────────────
 
 async function resolveTraceId(
@@ -201,7 +201,7 @@ async function resolveTraceId(
 }
 
 // ─────────────────────────────────────────
-// 跨源派生证据（Redis vs DB 状态冲突）
+// Cross-source derived evidence (Redis vs DB status conflict)
 // ─────────────────────────────────────────
 
 function deriveCrossSourceEvidence(evidence: EvidenceItem[], entityId: string): EvidenceItem[] {
@@ -214,7 +214,7 @@ function deriveCrossSourceEvidence(evidence: EvidenceItem[], entityId: string): 
       entity_id: entityId,
       timestamp: new Date().toISOString(),
       finding_type: 'status_mismatch',
-      summary: 'Redis 缓存中发现数据，但数据库中对应记录不存在，存在状态不一致',
+      summary: 'Data found in Redis cache, but corresponding record missing in DB; status inconsistent',
       confidence: 0.85,
       raw_ref: 'derived:redis-vs-db',
       normalization_status: 'complete',
@@ -225,7 +225,7 @@ function deriveCrossSourceEvidence(evidence: EvidenceItem[], entityId: string): 
 }
 
 // ─────────────────────────────────────────
-// 工具函数
+// Utility Functions
 // ─────────────────────────────────────────
 
 async function loadRunbookYaml(runbookName: string): Promise<RunbookYaml> {
@@ -240,7 +240,7 @@ async function loadRunbookJson<T>(runbookName: string, kind: string): Promise<T>
   return JSON.parse(content) as T;
 }
 
-/** 兼容旧版 execution.json：若 YAML 无 steps，降级用 operations 列表生成 step 对象 */
+/** Backward compatibility for execution.json: if YAML has no steps, generate step objects from operations array */
 async function getFallbackSteps(runbookName: string): Promise<RunbookStep[]> {
   const execution = await loadRunbookJson<ExecutionMetadata>(runbookName, 'execution');
   return (execution.operations ?? []).map((op) => ({
@@ -268,7 +268,7 @@ function makeErrorEvidence(stepId: string, message: string, entityId: string): E
     entity_id: entityId,
     timestamp: new Date().toISOString(),
     finding_type: 'step_error',
-    summary: `步骤 [${stepId}] 执行失败：${message}`,
+    summary: `Step [${stepId}] execution failed: ${message}`,
     confidence: 1,
     raw_ref: `step:${stepId}`,
     severity: 'error',

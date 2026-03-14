@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // agent-debugger MCP Server
-// 对外只暴露一个工具：investigate
-// 封装完整的 runbook 选择 → adapter 调用 → 证据聚合 → 报告生成流程
+// Exposes only one tool: investigate
+// Encapsulates the complete flow: runbook selection -> adapter invocation -> evidence aggregation -> report generation
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -17,33 +17,33 @@ const server = new McpServer({
 
 server.tool(
   'investigate',
-  '对后端事故进行 Runbook 驱动的自动调查，返回结构化事故报告（根因、证据、下一步建议）。',
+  'Performs Runbook-driven automated investigation for backend incidents, returning a structured incident report (root cause, evidence, recommended next actions).',
   {
-    context_id: z.string().describe('可追踪的上下文标识符，如 trace_id、order_id、request_id'),
+    context_id: z.string().describe('Traceable context identifier, such as trace_id, order_id, request_id'),
     context_type: z.enum([
       'trace_id', 'request_id', 'order_id', 'task_id', 'message_id', 'user_id',
-    ]).describe('context_id 的类型'),
-    symptom: z.string().describe('当前观察到的异常现象，尽量具体'),
-    expected: z.string().describe('正常情况下应有的行为或状态'),
+    ]).describe('Type of context_id'),
+    symptom: z.string().describe('Current observed abnormal phenomenon, be as specific as possible'),
+    expected: z.string().describe('Expected behavior or state under normal conditions'),
   },
   async ({ context_id, context_type, symptom, expected }) => {
-    // 1. 校验输入
+    // 1. Validate input
     const incident = IncidentInputSchema.parse({ context_id, context_type, symptom, expected });
 
-    // 2. 加载配置
+    // 2. Load configuration
     const config = await loadConfig();
 
-    // 3. 选择 Runbook
+    // 3. Select Runbook
     const selection = await selectRunbook(incident);
 
-    // 4. 执行 Runbook → 生成报告
+    // 4. Execute Runbook -> Generate report
     const report = await executeRunbook({
       incident,
       config,
       selectedRunbook: selection.selected,
     });
 
-    // 5. 返回 MCP 内容块
+    // 5. Return MCP content block
     return {
       content: [
         {
@@ -58,6 +58,6 @@ server.tool(
   }
 );
 
-// 启动 MCP Server（stdio 模式，兼容 Claude Desktop / OpenClaw 等）
+// Start MCP Server (stdio mode, compatible with Claude Desktop / OpenClaw, etc.)
 const transport = new StdioServerTransport();
 await server.connect(transport);

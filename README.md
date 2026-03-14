@@ -1,41 +1,43 @@
-# debug-runbook
+# debug-runbook / agent-debugger
 
 **Runbook-driven backend incident investigation for AI agents.**
 
-`debug-runbook` 将资深工程师的故障排查流程编码为可执行的 Runbook，让 AI Agent 按顺序收集证据、评估决策规则，最终输出结构化事故报告。
+`debug-runbook` encodes the troubleshooting workflows of senior engineers into executable Runbooks. It empowers AI Agents to sequentially collect evidence, evaluate decision rules, and ultimately output structured incident reports.
 
-> 当前状态：早期开源 MVP，持续迭代中。
+> **Status:** Early open-source MVP. Contributions are welcome!
 
----
-
-## 核心思路
-
-普通 AI 调试演示只是暴露工具 API，没有调查顺序、证据标准和漂移检测。
-
-`debug-runbook` 编码了这些缺失的约束：
-
-1. **Runbook 选择**：根据 symptom 信号权重选择最匹配的调查剧本
-2. **有序执行**：按 Runbook 声明的步骤顺序调用 adapter
-3. **Evidence 规范化**：所有工具返回值统一为 Evidence 对象，而非原始 payload
-4. **决策规则**：evidence 类型组合触发具体结论，结论必须有证据支撑
-5. **结构化报告**：根因、已确认事实、替代假设、下一步建议
+[Read this in Chinese (简体中文)](README_zh.md)
 
 ---
 
-## 快速开始
+## The Core Philosophy
 
-### 安装
+Most AI debugging demos simply expose low-level tool APIs to LLMs, which lacks investigation order, evidence standards, and drift detection (hallucination control).
+
+`debug-runbook` encodes these missing constraints:
+
+1. **Runbook Selection**: Selects the best-matching investigation playbook based on the weight of symptom signals.
+2. **Ordered Execution**: Calls adapters strictly in the sequence declared by the Runbook.
+3. **Evidence Normalization**: Normalizes all tool return values into `Evidence` objects, rather than dumping raw payloads (saving tokens and reducing noise).
+4. **Decision Engine**: Combines evidence types to trigger specific conclusions. Every conclusion must be backed by evidence.
+5. **Structured Reporting**: Outputs the root cause, confirmed facts, alternative hypotheses, and next steps.
+
+---
+
+## Quick Start
+
+### Installation
 
 ```bash
 pnpm install
 pnpm build
 ```
 
-### 配置
+### Configuration
 
 ```bash
 cp agent-debugger.config.example.yaml agent-debugger.config.yaml
-# 填入你的 Langfuse / DB / Redis 凭据
+# Fill in your Langfuse / DB / Redis credentials
 ```
 
 ```yaml
@@ -54,9 +56,9 @@ adapters:
     key_prefix_allowlist: ["cache:order:", "idempotency:"]
 ```
 
-### 作为 MCP 工具接入 AI
+### Connect to AI via MCP
 
-在 Claude Desktop / OpenClaw 的 MCP 配置中添加：
+Add this to your Claude Desktop or OpenClaw MCP configuration:
 
 ```json
 {
@@ -75,93 +77,93 @@ adapters:
 }
 ```
 
-然后直接告诉 AI：
+Then simply prompt the AI:
 
-> `investigate` `trace_id=abc123`，现象：订单创建成功但下游任务未生成，期望：tasks 表中应有对应记录
+> `investigate` `trace_id=abc123`, Symptom: Order was created successfully but the downstream task wasn't generated. Expected: There should be a corresponding record in the tasks table.
 
-### 运行 demo（无需真实系统）
+### Run Local Demos (No real systems required)
 
 ```bash
 npm run demo:order-task-missing
-npm run benchmark        # 7/7 全通过
-npm run check            # 结构校验
+npm run benchmark        # Should pass all test cases
+npm run check            # Metadata structure validation
 ```
 
 ---
 
-## 架构
+## Architecture
 
-```
+```text
 Incident Input (context_id + symptom + expected)
        ↓
-[Runbook Selector]   selector.json 信号权重匹配
+[Runbook Selector]   Matches signal weights via *.selector.json
        ↓
-[Executor]           按 execution.json 顺序调用 adapter
+[Executor]           Calls adapters in order defined by *.execution.json
        ↓
 [Adapter Layer]      Langfuse / PostgreSQL / Redis → Evidence[]
        ↓
-[Decision Engine]    decision.json 规则匹配 → 结论 + 置信度
+[Decision Engine]    Matches rules via *.decision.json → Conclusion + Confidence
        ↓
-[Reporter]           结构化 IncidentReport
+[Reporter]           Structured IncidentReport
 ```
 
-### 目录结构
+### Directory Structure
 
-```
+```text
 debug-runbook/
-├── src/                    # TypeScript 源码
-│   ├── adapters/           # Langfuse / DB / Redis adapter
+├── src/                    # TypeScript source code
+│   ├── adapters/           # Langfuse / DB / Redis adapters
 │   ├── core/               # selector / executor / reporter
-│   ├── config/             # YAML 配置加载器
-│   ├── mcp/server.ts       # MCP Server 入口
-│   └── types/              # Zod Schema 全局类型
-├── runbooks/               # 故障调查剧本（YAML + JSON sidecar）
-├── adapters/               # adapter 规范化元数据（JSON）
-├── evidence-policies/      # 跨源派生证据规则
-├── fixtures/               # 可重播的测试案例
-├── scripts/                # Demo 和基准测试脚本
-└── docs/                   # 设计文档
+│   ├── config/             # YAML config loader
+│   ├── mcp/server.ts       # MCP Server entrypoint
+│   └── types/              # Global Zod schemas
+├── runbooks/               # Troubleshooting playbooks (YAML + JSON sidecars)
+├── adapters/               # Adapter normalization metadata (JSON)
+├── evidence-policies/      # Cross-source derived evidence rules
+├── fixtures/               # Replayable mock cases
+├── scripts/                # Demos and benchmark scripts
+└── docs/                   # Design documentation
 ```
 
 ---
 
-## 内置 Runbook
+## Built-in Runbooks
 
-| Runbook | 适用场景 |
+| Runbook | Scenario |
 |---------|---------|
-| `request_not_effective` | 请求成功但预期副作用未产生（订单创建但任务缺失等） |
-| `cache_stale` | 返回值与持久化状态不符，疑缓存陈旧 |
-| `state_abnormal` | 持久化状态本身与业务预期不符 |
+| `request_not_effective` | Request succeeded but expected side-effects did not occur (e.g., order created but task missing) |
+| `cache_stale` | Returned value contradicts persisted state, suspected stale cache |
+| `state_abnormal` | The persisted state itself does not match business expectations |
 
-### 添加自定义 Runbook
+### Adding a Custom Runbook
 
-1. 创建 `your-runbook.yaml`（参考 `docs/runbook-spec.md`）
-2. 创建配套的 `.selector.json` / `.execution.json` / `.decision.json`
-3. 在 `agent-debugger.config.yaml` 的 `runbooks:` 列表中添加路径
-
----
-
-## 安全约束
-
-- **只读**：所有 adapter 均为只读，MVP 阶段无写操作
-- **SQL 安全**：拦截 INSERT/UPDATE/DELETE/DROP 等危险语句
-- **表白名单**：DB 只允许访问指定表
-- **key 前缀白名单**：Redis 只允许访问指定前缀的 key
-- **字段过滤**：Langfuse span 字段按 allowlist 过滤，防 token 爆炸
+1. Create `your-runbook.yaml` (See `docs/runbook-spec.md`)
+2. Create companion files: `.selector.json` / `.execution.json` / `.decision.json`
+3. Add the path to the `runbooks:` list in `agent-debugger.config.yaml`
 
 ---
 
-## 文档
+## Security Constraints
 
-- [架构设计](docs/architecture.md)
-- [证据模型](docs/evidence-model.md)
-- [Runbook 规范](docs/runbook-spec.md)
-- [Adapter 规范](docs/tool-adapter-spec.md)
-- [评估方法](docs/evaluation.md)
+- **Read-Only**: All adapters are strictly read-only. There are no write operations in the MVP.
+- **SQL Safety**: Intercepts dangerous statements like INSERT/UPDATE/DELETE/DROP.
+- **Table Allowlist**: DB adapter can only access specified tables.
+- **Key Prefix Allowlist**: Redis adapter can only access keys with specified prefixes.
+- **Field Filtering**: Langfuse span fields are filtered by allowlist to prevent token explosion.
 
-## 贡献
+---
 
-见 [CONTRIBUTING.md](CONTRIBUTING.md)
+## Documentation
+
+- [Architecture Design](docs/architecture.md)
+- [Evidence Model](docs/evidence-model.md)
+- [Runbook Specification](docs/runbook-spec.md)
+- [Adapter Specification](docs/tool-adapter-spec.md)
+- [Evaluation](docs/evaluation.md)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## License
 

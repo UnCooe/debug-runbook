@@ -1,28 +1,28 @@
-# 🪛 Case Study: 适配你的业务系统
+# 🪛 Case Study: Adapting to Your Business System
 
-本篇指南将以一个真实的 **DAG (有向无环图) 情报分析系统** 为案例，教你如何将你的业务系统接入 `agent-debugger` 并零代码配置专属的自动化排错流程。
-
----
-
-## 业务背景
-
-假设你的团队维护着一个情报分析系统。每一条情报的处理都是一个基于 DAG 的异步任务流，包含多个节点：数据抓取 → 文本清洗 → 向量化 → LLM 分析 → 结果入库。
-
-由于节点多、耗时长且涉及多个外部 API，线上排错一直是个痛点：
-- **痛点 1**：一个节点失败会导致最终结果没出来，追踪完整链路非常费时。
-- **痛点 2**：排障是有"固定套路"的，通常就是去看 Langfuse Trace，查某几个 Span 是否报错，再去数据库搜一下入库记录。
-
-为了解决这个问题，团队决定利用 `agent-debugger` 将这一套"固定排错套路"固化下来并赋予大模型。
+This guide uses a realistic **DAG (Directed Acyclic Graph) Intelligence Analysis System** as an example to show you how to connect your business system to `agent-debugger` and configure an automated troubleshooting flow with zero code.
 
 ---
 
-## 接入步骤
+## Business Context
 
-### 第一步：开启并配置数据源 (Adapter)
+Suppose your team maintains an intelligence analysis system. The processing of each piece of intelligence is an asynchronous task flow based on a DAG, containing multiple nodes: Data Scraping → Text Cleaning → Vectorization → LLM Analysis → Result Ingestion.
 
-该系统主要依赖两大数据源：**Langfuse**（记录 DAG 每一环节的执行流）和 **PostgreSQL**（记录最终分析结果）。
+Because there are many nodes, long execution times, and multiple external APIs involved, online troubleshooting has always been a pain point:
+- **Pain Point 1**: A single node failure causes the final result to be missing. Tracing the complete chain is very time-consuming.
+- **Pain Point 2**: Troubleshooting follows a "fixed routine". Usually, you just look at the Langfuse Trace, check if specific Spans report errors, and then search the database for ingestion records.
 
-只需在项目根目录创建或修改 `agent-debugger.config.yaml`：
+To solve this problem, the team decided to use `agent-debugger` to solidify this "fixed troubleshooting routine" and empower the LLM with it.
+
+---
+
+## Integration Steps
+
+### Step 1: Enable and Configure Data Sources (Adapters)
+
+This system mainly relies on two data sources: **Langfuse** (records the execution flow of each DAG link) and **PostgreSQL** (records the final analysis results).
+
+Simply create or modify `agent-debugger.config.yaml` in the project root:
 
 ```yaml
 adapters:
@@ -39,18 +39,18 @@ adapters:
   db:
     type: postgres
     connection_string: ${DATABASE_URL}
-    allowed_tables: [reports, dag_tasks] # 严格的安全边界，大模型只能查这两个表
+    allowed_tables: [reports, dag_tasks] # Strict security boundary: the LLM can only query these two tables
 ```
 
-### 第二步：编写 DAG 专属 Runbook
+### Step 2: Write a Custom DAG Runbook
 
-在 `runbooks/` 目录下创建一个名为 `dag_node_failure.yaml` 的文件，将你们老专家排查 DAG 失败的思路写成机器可读的规则：
+Create a file named `dag_node_failure.yaml` in the `runbooks/` directory, translating your senior experts' troubleshooting logic for DAG failures into machine-readable rules:
 
-#### 1. 触发条件 (Selector)
-告诉大模型，什么情况下该选这个 Runbook？
+#### 1. Trigger Conditions (Selector)
+Tell the LLM when to select this Runbook.
 ```yaml
 name: dag_node_failure
-description: 调查 DAG 情报分析链路中某个节点失败导致最终无结果的问题。
+description: Investigate the problem where the failure of a specific node in the DAG intelligence analysis chain results in no final output.
 
 match:
   context_types:
@@ -62,50 +62,50 @@ match:
     - stuck
 ```
 
-#### 2. 调查动作 (Steps)
-大模型选中这个 Runbook 后，框架应该按什么顺序自动调接外部系统？
+#### 2. Investigation Actions (Steps)
+After the LLM selects this Runbook, in what sequence should the framework automatically query external systems?
 ```yaml
 steps:
-  # 步骤 1：去 Langfuse 看有没有 ERROR 级别的 Span
+  # Step 1: Check Langfuse for any ERROR level Spans
   - id: check_trace_errors
     tool: trace.lookup
     required: true
-    purpose: 检查是否有任何 DAG 节点抛出异常
+    purpose: Check if any DAG node threw an exception
     params:
-      trace_ref_column: langfuse_trace_id # 如果初始线索只有 report_id，用它回查 trace_id
+      trace_ref_column: langfuse_trace_id # If the initial clue is only report_id, use it to lookup trace_id
 
-  # 步骤 2：去数据库看状态
+  # Step 2: Check database status
   - id: check_db_record
     tool: db.readonly_query
     required: true
-    purpose: 核实最终结果是否确实未入库
+    purpose: Verify if the final result truly failed to be ingested
     params:
       table: reports
       match_column: id
 ```
 
-#### 3. 决策逻辑 (Decision Rules)
-拿到线索（Evidence）后，怎么推断事故结论？也就是经验沉淀的过程。
+#### 3. Decision Logic (Decision Rules)
+After obtaining clues (Evidence), how do you infer the incident conclusion? This is the process of crystallizing experience.
 
 ```yaml
 decision_rules:
   - id: upstream_api_timeout
     when:
       all:
-        - finding_type: downstream_error # Langfuse 返回了 Error Span
-        - finding_type: db_row_missing   # 数据库确实没结果
-    conclusion: 外部数据源超时导致分析流中断
+        - finding_type: downstream_error # Langfuse returned an Error Span
+        - finding_type: db_row_missing   # The database indeed lacks results
+    conclusion: External data source timeout caused the analysis flow to interrupt
     confidence: high
 ```
 
 ---
 
-## 这套机制好在哪里？
+## What Makes This Mechanism Great?
 
-完成上述两步配置后，整个框架就被赋予了处理你们系统业务报错的能力。
+After completing the two configuration steps above, the entire framework is equipped with the ability to handle business errors in your system.
 
-1. **绝对安全**。即便大模型"幻觉"发作想要执行 `DROP TABLE`，也会在 DB Adapter 的 `allowed_tables` 白名单和强只读事务（`READ ONLY`）层被立即拦截。
-2. **保护 Token 额度**。如果不加限制地丢一条复杂 DAG Trace 给 Claude，一次对话可能耗费数万 Token。`span_field_allowlist` 机制仅将关键属性（如 `output.error`）提取并转化为几十个字的结构化 Evidence，大幅节约成本并提高推理精准度。
-3. **团队积累**。下一次有新同事入职，遇到"DAG 不产出数据"的问题，他只需要通过 MCP 把问题描述丢给大模型。大模型会自动匹配 `dag_node_failure.yaml`，代替他去执行 Langfuse 检索和 DB 查询，甚至直接在聊天框里输出包含错误堆栈的诊断报告。
+1. **Absolute Security**. Even if the LLM hallucinates and wants to execute `DROP TABLE`, it will be immediately intercepted by the `allowed_tables` allowlist in the DB Adapter and the strong Read-Only transaction (`READ ONLY`) layer.
+2. **Token Quota Protection**. If you throw a complex DAG Trace to Claude without restrictions, a single conversation could consume tens of thousands of Tokens. The `span_field_allowlist` mechanism only extracts key attributes (like `output.error`) and translates them into a few dozen words of structured Evidence, drastically reducing costs and improving reasoning accuracy.
+3. **Team Knowledge Accumulation**. The next time a new colleague joins and encounters a "DAG not producing data" problem, they merely need to throw the problem description to the LLM via MCP. The LLM will automatically match `dag_node_failure.yaml`, query Langfuse and DB on their behalf, and even directly output a diagnostic report containing the error stack in the chat box.
 
-> **现在就开始适配吧！前往 `agent-debugger.config.example.yaml` 复制一份属于你的配置文件。**
+> **Start adapting now! Go copy a version of your configuration file from `agent-debugger.config.example.yaml`.**
