@@ -16,7 +16,7 @@ Please do **not** open a public issue for security-sensitive reports.
 Preferred path:
 
 - use GitHub private vulnerability reporting for this repository:
-  - [Report a vulnerability](https://github.com/Uncooe/debug-runbook/security/advisories/new)
+  - [Report a vulnerability](https://github.com/UnCooe/debug-runbook/security/advisories/new)
 
 If private reporting is unavailable in your environment:
 

@@ -6,11 +6,11 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Uncooe/debug-runbook.git"
+    "url": "git+https://github.com/UnCooe/debug-runbook.git"
   },
-  "homepage": "https://github.com/Uncooe/debug-runbook#readme",
+  "homepage": "https://github.com/UnCooe/debug-runbook#readme",
   "bugs": {
-    "url": "https://github.com/Uncooe/debug-runbook/issues"
+    "url": "https://github.com/UnCooe/debug-runbook/issues"
   },
   "engines": {
     "node": ">=18.17"
