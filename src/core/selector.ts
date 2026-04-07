@@ -2,13 +2,12 @@
 // Logic ported from scripts/runbook-selector.mjs, with TypeScript types added
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { IncidentInput } from '../types/index.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// Built-in runbooks directory (project root/runbooks/)
-const BUILTIN_RUNBOOK_DIR = path.resolve(__dirname, '..', '..', 'runbooks');
+import {
+  BUILTIN_RUNBOOK_DIR,
+  getRunbookNameFromPath,
+  normalizeConfiguredRunbooks,
+} from './runbook-paths.js';
 const CONTEXT_WEIGHT = 3;
 
 interface SelectorSignal {
@@ -29,6 +28,7 @@ export interface RunbookCandidate {
   name: string;
   score: number;
   matched_signals: string[];
+  context_supported: boolean;
 }
 
 export interface SelectionResult {
@@ -36,13 +36,13 @@ export interface SelectionResult {
   candidates: RunbookCandidate[];
 }
 
-let registryCache: RunbookSelectorMetadata[] | null = null;
+const registryCache = new Map<string, RunbookSelectorMetadata[]>();
 
 export async function selectRunbook(
   incident: IncidentInput,
-  extraRunbookDirs: string[] = [],
+  configuredRunbooks: string[] = [],
 ): Promise<SelectionResult> {
-  const registry = await loadRunbookRegistry(extraRunbookDirs);
+  const registry = await loadRunbookRegistry(configuredRunbooks);
   const scored = registry
     .map((runbook) => scoreRunbook(runbook, incident))
     .sort(compareCandidates);
@@ -53,50 +53,81 @@ export async function selectRunbook(
   };
 }
 
-export async function listRunbooks(extraRunbookDirs: string[] = []): Promise<string[]> {
-  const registry = await loadRunbookRegistry(extraRunbookDirs);
+export async function listRunbooks(configuredRunbooks: string[] = []): Promise<string[]> {
+  const registry = await loadRunbookRegistry(configuredRunbooks);
   return registry.map((item) => item.name);
 }
 
 // Clear cache (needed for tests)
 export function clearRegistryCache(): void {
-  registryCache = null;
+  registryCache.clear();
 }
 
-async function loadRunbookRegistry(extraRunbookDirs: string[]): Promise<RunbookSelectorMetadata[]> {
-  if (registryCache) return registryCache;
+async function loadRunbookRegistry(configuredRunbooks: string[]): Promise<RunbookSelectorMetadata[]> {
+  const normalizedRunbooks = normalizeConfiguredRunbooks(configuredRunbooks);
+  const cacheKey = normalizedRunbooks.join('|');
+  const cached = registryCache.get(cacheKey);
+  if (cached) return cached;
 
-  const dirs = [BUILTIN_RUNBOOK_DIR, ...extraRunbookDirs];
-  const allMetadata: RunbookSelectorMetadata[] = [];
+  const allMetadata = new Map<string, RunbookSelectorMetadata>();
 
-  for (const dir of dirs) {
-    try {
-      const entries = await readdir(dir, { withFileTypes: true });
-      const selectorFiles = entries.filter(
-        (e) => e.isFile() && e.name.endsWith('.selector.json')
-      );
-      const loaded = await Promise.all(
-        selectorFiles.map(async (e) => {
-          const content = await readFile(path.join(dir, e.name), 'utf-8');
-          return JSON.parse(content) as RunbookSelectorMetadata;
-        })
-      );
-      allMetadata.push(...loaded);
-    } catch {
-      // Directory does not exist or read failed, skip
-    }
+  for (const metadata of await loadBuiltInSelectors()) {
+    allMetadata.set(metadata.name, metadata);
   }
 
-  registryCache = allMetadata;
-  return registryCache;
+  for (const metadata of await loadConfiguredSelectors(normalizedRunbooks)) {
+    allMetadata.set(metadata.name, metadata);
+  }
+
+  const registry = [...allMetadata.values()];
+  registryCache.set(cacheKey, registry);
+  return registry;
+}
+
+async function loadBuiltInSelectors(): Promise<RunbookSelectorMetadata[]> {
+  try {
+    const entries = await readdir(BUILTIN_RUNBOOK_DIR, { withFileTypes: true });
+    const selectorFiles = entries.filter(
+      (entry) => entry.isFile() && entry.name.endsWith('.selector.json')
+    );
+    return Promise.all(
+      selectorFiles.map(async (entry) => {
+        const content = await readFile(path.join(BUILTIN_RUNBOOK_DIR, entry.name), 'utf-8');
+        return JSON.parse(content) as RunbookSelectorMetadata;
+      })
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function loadConfiguredSelectors(configuredRunbooks: string[]): Promise<RunbookSelectorMetadata[]> {
+  const selectors = await Promise.all(
+    configuredRunbooks.map(async (runbookPath) => {
+      const selectorPath = path.join(
+        path.dirname(runbookPath),
+        `${getRunbookNameFromPath(runbookPath)}.selector.json`
+      );
+
+      try {
+        const content = await readFile(selectorPath, 'utf-8');
+        return JSON.parse(content) as RunbookSelectorMetadata;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return selectors.filter((item): item is RunbookSelectorMetadata => item !== null);
 }
 
 function scoreRunbook(runbook: RunbookSelectorMetadata, incident: IncidentInput): RunbookCandidate {
   const haystack = `${incident.symptom} ${incident.expected}`.toLowerCase();
   const matchedSignals: string[] = [];
   let score = 0;
+  const contextSupported = (runbook.context_types ?? []).includes(incident.context_type);
 
-  if ((runbook.context_types ?? []).includes(incident.context_type)) {
+  if (contextSupported) {
     score += CONTEXT_WEIGHT;
     matchedSignals.push(`context:${incident.context_type}(+${CONTEXT_WEIGHT})`);
   }
@@ -121,6 +152,7 @@ function scoreRunbook(runbook: RunbookSelectorMetadata, incident: IncidentInput)
     name: runbook.name,
     score: Number(score.toFixed(2)),
     matched_signals: matchedSignals,
+    context_supported: contextSupported,
   };
 }
 
@@ -132,6 +164,9 @@ function matchesSignal(signal: SelectorSignal, haystack: string): boolean {
 }
 
 function compareCandidates(a: RunbookCandidate, b: RunbookCandidate): number {
+  if (a.context_supported !== b.context_supported) {
+    return Number(b.context_supported) - Number(a.context_supported);
+  }
   if (b.score !== a.score) return b.score - a.score;
   return b.name.localeCompare(a.name);
 }

@@ -1,84 +1,240 @@
-import { describe, it, expect, vi } from 'vitest';
+import os from 'node:os';
+import path from 'node:path';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { executeRunbook } from './executor.js';
 import { runLangfuseAdapter } from '../adapters/langfuse/normalizer.js';
 import { runDbAdapter } from '../adapters/db/normalizer.js';
 import { runRedisAdapter } from '../adapters/redis/normalizer.js';
 
-// 模拟 adapters
 vi.mock('../adapters/langfuse/normalizer.js', () => ({
-  runLangfuseAdapter: vi.fn()
+  runLangfuseAdapter: vi.fn(),
 }));
 vi.mock('../adapters/db/normalizer.js', () => ({
-  runDbAdapter: vi.fn()
+  runDbAdapter: vi.fn(),
 }));
 vi.mock('../adapters/redis/normalizer.js', () => ({
-  runRedisAdapter: vi.fn()
+  runRedisAdapter: vi.fn(),
 }));
 
-// 因为我们只需测试执行引擎调度，并不想测内部调用的 constructor
-// 所以再把 clients 模块 mock 掉
 vi.mock('../adapters/langfuse/client.js', () => ({
-  LangfuseClient: class {}
+  LangfuseClient: class {},
 }));
 vi.mock('../adapters/db/client.js', () => ({
   DbReadonlyClient: class {
     close = vi.fn();
     query = vi.fn();
-  }
+  },
 }));
 vi.mock('../adapters/redis/client.js', () => ({
   RedisClient: class {
     close = vi.fn();
-  }
+  },
 }));
 
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+  vi.clearAllMocks();
+  await Promise.all(
+    tempDirs.splice(0).map((dirPath) => rm(dirPath, { recursive: true, force: true }))
+  );
+});
+
 describe('Executor Engine', () => {
-  it('应当能正常执行 cache_stale runbook 调度逻辑', async () => {
-    // 准备 Mock 证据返回值
+  it('runs the built-in cache_stale flow', async () => {
     vi.mocked(runLangfuseAdapter).mockResolvedValue({
-      ok: true, source: 'trace', evidence: [
-        { finding_type: 'trace_found', summary: 'Mock trace' } as any
-      ], errors: [], raw: null
+      ok: true,
+      source: 'trace',
+      evidence: [
+        { finding_type: 'trace_found', summary: 'Mock trace' } as any,
+      ],
+      errors: [],
+      raw: null,
     });
 
     vi.mocked(runDbAdapter).mockResolvedValue({
-      ok: true, source: 'db', evidence: [
-        { finding_type: 'db_row_found', summary: 'Mock row' } as any
-      ], errors: []
+      ok: true,
+      source: 'db',
+      evidence: [
+        { finding_type: 'db_row_found', summary: 'Mock row' } as any,
+      ],
+      errors: [],
     });
 
     vi.mocked(runRedisAdapter).mockResolvedValue({
-      ok: true, source: 'redis', evidence: [
-        { finding_type: 'cache_key_exists', summary: 'Mock cache' } as any
-      ], errors: [], raw: null
+      ok: true,
+      source: 'redis',
+      evidence: [
+        { finding_type: 'cache_key_exists', summary: 'Mock cache' } as any,
+      ],
+      errors: [],
+      raw: null,
     });
 
     const report = await executeRunbook({
-      incident: { context_id: '123', context_type: 'trace_id', symptom: '缓存陈旧', expected: '最新数据' },
+      incident: {
+        context_id: 'task_123',
+        context_type: 'task_id',
+        symptom: 'cache is stale',
+        expected: 'latest data should be returned',
+      },
       config: {
         adapters: {
           langfuse: { base_url: '', public_key: '', secret_key: '', span_field_allowlist: [] },
           db: { type: 'postgres', connection_string: '', allowed_tables: [] },
-          redis: { url: '', key_prefix_allowlist: [] }
+          redis: { url: '', key_prefix_allowlist: [] },
         },
-        runbooks: []
+        runbooks: [],
       },
-      selectedRunbook: 'cache_stale'
+      selectedRunbook: 'cache_stale',
     });
 
-    // 检查最终结果
-    expect(report.incident_summary).toContain('缓存陈旧');
+    expect(report.incident_summary).toContain('cache is stale');
     expect(report.selected_runbook).toBe('cache_stale');
-    
-    // 它应该调用了 normalizer，生成了各种 finding，且决策引擎最终判定了结论
     expect(report.evidence.length).toBeGreaterThan(0);
-    // 因为这三个找到证据，按照 cache_stale 的 rules，如果有 cache_key_exists + db_row_found
-    // 可能还会引发一些衍生状态不一致（derived_status_mismatch 也可能出现）
     expect(report.primary_conclusion).toBeDefined();
-
-    // 验证调用了对应的 mock 适配器
-    expect(runLangfuseAdapter).toHaveBeenCalled();
     expect(runDbAdapter).toHaveBeenCalled();
     expect(runRedisAdapter).toHaveBeenCalled();
   });
+
+  it('loads configured custom runbooks at execution time', async () => {
+    const customRunbookPath = await createCustomRunbook('custom_cache_story');
+
+    const report = await executeRunbook({
+      incident: {
+        context_id: 'custom-1',
+        context_type: 'order_id',
+        symptom: 'asset detail is wrong',
+        expected: 'asset detail should match the source of truth',
+      },
+      config: {
+        adapters: {},
+        runbooks: [customRunbookPath],
+      },
+      selectedRunbook: 'custom_cache_story',
+    });
+
+    expect(report.selected_runbook).toBe('custom_cache_story');
+    expect(report.primary_conclusion).toBe('custom_inconclusive');
+    expect(report.matched_decision_rule).toBe('custom-fallback');
+  });
+
+  it('uses request_id-specific persistence and cache params for request_not_effective', async () => {
+    vi.mocked(runDbAdapter).mockResolvedValue({
+      ok: true,
+      source: 'db',
+      evidence: [],
+      errors: [],
+    });
+
+    vi.mocked(runRedisAdapter).mockResolvedValue({
+      ok: true,
+      source: 'redis',
+      evidence: [],
+      errors: [],
+      raw: null,
+    });
+
+    await executeRunbook({
+      incident: {
+        context_id: 'request_4041',
+        context_type: 'request_id',
+        symptom: 'user submitted a request but the order was never created',
+        expected: 'the request should create an order record',
+      },
+      config: {
+        adapters: {
+          db: { type: 'postgres', connection_string: '', allowed_tables: [] },
+          redis: { url: '', key_prefix_allowlist: [] },
+        },
+        runbooks: [],
+      },
+      selectedRunbook: 'request_not_effective',
+    });
+
+    expect(runDbAdapter).toHaveBeenCalledWith(expect.anything(), 'orders', 'request_id', 'request_4041', 'request_4041');
+    expect(runRedisAdapter).toHaveBeenCalledWith(expect.anything(), 'idempotency:request_4041', 'request_4041');
+  });
+
+  it('uses task-specific persistence and cache params for state_abnormal', async () => {
+    vi.mocked(runDbAdapter).mockResolvedValue({
+      ok: true,
+      source: 'db',
+      evidence: [],
+      errors: [],
+    });
+
+    vi.mocked(runRedisAdapter).mockResolvedValue({
+      ok: true,
+      source: 'redis',
+      evidence: [],
+      errors: [],
+      raw: null,
+    });
+
+    await executeRunbook({
+      incident: {
+        context_id: 'task_777',
+        context_type: 'task_id',
+        symptom: 'task status is incorrect',
+        expected: 'task status should be finished',
+      },
+      config: {
+        adapters: {
+          db: { type: 'postgres', connection_string: '', allowed_tables: [] },
+          redis: { url: '', key_prefix_allowlist: [] },
+        },
+        runbooks: [],
+      },
+      selectedRunbook: 'state_abnormal',
+    });
+
+    expect(runDbAdapter).toHaveBeenCalledWith(expect.anything(), 'tasks', 'task_id', 'task_777', 'task_777');
+    expect(runRedisAdapter).toHaveBeenCalledWith(expect.anything(), 'task:view:task_777', 'task_777');
+  });
+
+  it('throws when the selected runbook does not support the provided context type', async () => {
+    await expect(executeRunbook({
+      incident: {
+        context_id: 'trace_123',
+        context_type: 'trace_id',
+        symptom: 'request did not create the expected side effect',
+        expected: 'a task should be created',
+      },
+      config: {
+        adapters: {},
+        runbooks: [],
+      },
+      selectedRunbook: 'request_not_effective',
+    })).rejects.toThrow('does not support context_type "trace_id"');
+  });
 });
+
+async function createCustomRunbook(name: string): Promise<string> {
+  const dirPath = await mkdtemp(path.join(os.tmpdir(), 'agent-debugger-runbook-'));
+  tempDirs.push(dirPath);
+
+  const runbookPath = path.join(dirPath, `${name}.yaml`);
+  await writeFile(
+    runbookPath,
+    `name: ${name}\nsteps: []\n`,
+    'utf8',
+  );
+  await writeFile(
+    path.join(dirPath, `${name}.decision.json`),
+    JSON.stringify({
+      name,
+      rules: [],
+      fallback: {
+        id: 'custom-fallback',
+        conclusion: 'custom_inconclusive',
+        confidence: 0.2,
+        root_cause: 'Custom runbook fallback fired.',
+      },
+    }, null, 2),
+    'utf8',
+  );
+
+  return runbookPath;
+}

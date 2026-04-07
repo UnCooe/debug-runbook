@@ -3,7 +3,6 @@ description: Investigate why a request did not produce the expected backend effe
 
 match:
   context_types:
-    - trace_id
     - request_id
     - order_id
   symptoms:
@@ -20,9 +19,13 @@ steps:
     required: false
     purpose: confirm whether the request can be observed via trace
     params:
-      # 若 context_type 为 trace_id，直接用 context_id 查
-      # 否则尝试在 db 中关联 trace_id（见 executor 的 trace_ref_column）
       trace_ref_column: trace_id
+      trace_ref_table_by_context_type:
+        request_id: orders
+        order_id: orders
+      trace_ref_match_column_by_context_type:
+        request_id: request_id
+        order_id: order_id
 
   - id: inspect_core_path
     tool: trace.inspect_spans
@@ -32,17 +35,23 @@ steps:
   - id: verify_main_persistence
     tool: db.readonly_query
     required: true
-    purpose: confirm whether the expected primary state was persisted
+    purpose: confirm whether the expected downstream persistence actually happened
     params:
-      table: orders
-      match_column: order_id
+      table_by_context_type:
+        request_id: orders
+        order_id: tasks
+      match_column_by_context_type:
+        request_id: request_id
+        order_id: order_id
 
   - id: inspect_idempotency_cache
     tool: redis.inspect
     required: false
     purpose: detect stale cache or idempotency short-circuit
     params:
-      key_template: "idempotency:{{context_id}}"
+      key_template_by_context_type:
+        request_id: "idempotency:{{context_id}}"
+        order_id: "task:idempotent:{{context_id}}"
 
 decision_rules:
   - id: trace_missing

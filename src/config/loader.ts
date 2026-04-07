@@ -15,8 +15,8 @@ const DEFAULT_CONFIG_PATHS = [
  */
 function interpolateEnvVars(input: unknown): unknown {
   if (typeof input === 'string') {
-    return input.replace(/\$\{([^}]+)\}/g, (_, varName: string) => {
-      return process.env[varName.trim()] ?? input;
+    return input.replace(/\$\{([^}]+)\}/g, (match, varName: string) => {
+      return process.env[varName.trim()] ?? match;
     });
   }
   if (Array.isArray(input)) {
@@ -50,8 +50,9 @@ export async function loadConfig(cwd = process.cwd()): Promise<AgentDebuggerConf
   const raw = await readFile(configPath, 'utf-8');
   const parsed = parseYaml(raw);
   const interpolated = interpolateEnvVars(parsed);
+  const resolvedPaths = resolveConfigPaths(interpolated, path.dirname(configPath));
 
-  return AgentDebuggerConfigSchema.parse(interpolated);
+  return AgentDebuggerConfigSchema.parse(resolvedPaths);
 }
 
 async function findDefaultConfig(cwd: string): Promise<string | null> {
@@ -65,4 +66,23 @@ async function findDefaultConfig(cwd: string): Promise<string | null> {
     }
   }
   return null;
+}
+
+function resolveConfigPaths(input: unknown, configDir: string): unknown {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    return input;
+  }
+
+  const config = input as Record<string, unknown>;
+  const runbooks = Array.isArray(config.runbooks)
+    ? config.runbooks.map((item) => {
+      if (typeof item !== 'string') return item;
+      return path.isAbsolute(item) ? item : path.resolve(configDir, item);
+    })
+    : config.runbooks;
+
+  return {
+    ...config,
+    runbooks,
+  };
 }

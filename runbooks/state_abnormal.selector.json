@@ -1,7 +1,7 @@
 {
   "name": "state_abnormal",
   "priority": 1,
-  "context_types": ["order_id", "task_id", "user_id"],
+  "context_types": ["order_id", "task_id"],
   "positive_signals": [
     { "pattern": "status", "weight": 2.5 },
     { "pattern": "unexpected", "weight": 2.5 },

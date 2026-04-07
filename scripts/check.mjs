@@ -259,12 +259,10 @@ async function validateRunbookYamlSteps(yamlPath, runbookName, failures) {
 
     // db 参数校验
     if (tool?.startsWith('db.')) {
-      if (params.table && !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(params.table)) {
-        failures.push(`Runbook ${runbookName} step [${id}]: params.table "${params.table}" is not a valid identifier.`);
-      }
-      if (params.match_column && !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(params.match_column)) {
-        failures.push(`Runbook ${runbookName} step [${id}]: params.match_column "${params.match_column}" is not a valid identifier.`);
-      }
+      validateIdentifierField(runbookName, id, 'params.table', params.table, failures);
+      validateIdentifierField(runbookName, id, 'params.match_column', params.match_column, failures);
+      validateIdentifierMap(runbookName, id, 'params.table_by_context_type', params.table_by_context_type, failures);
+      validateIdentifierMap(runbookName, id, 'params.match_column_by_context_type', params.match_column_by_context_type, failures);
     }
 
     // redis key_template 校验
@@ -272,6 +270,19 @@ async function validateRunbookYamlSteps(yamlPath, runbookName, failures) {
       if (!KEY_TEMPLATE_RE.test(params.key_template)) {
         failures.push(`Runbook ${runbookName} step [${id}]: params.key_template "${params.key_template}" has invalid format. Use alphanumeric, colon, dash, dot, or {{context_id}}.`);
       }
+    }
+
+    if (tool?.startsWith('redis.') && params.key_template_by_context_type) {
+      validateKeyTemplateMap(runbookName, id, params.key_template_by_context_type, failures, KEY_TEMPLATE_RE);
+    }
+
+    if (tool?.startsWith('trace.')) {
+      validateIdentifierField(runbookName, id, 'params.trace_ref_column', params.trace_ref_column, failures);
+      validateIdentifierField(runbookName, id, 'params.trace_ref_table', params.trace_ref_table, failures);
+      validateIdentifierField(runbookName, id, 'params.trace_ref_match_column', params.trace_ref_match_column, failures);
+      validateIdentifierMap(runbookName, id, 'params.trace_ref_column_by_context_type', params.trace_ref_column_by_context_type, failures);
+      validateIdentifierMap(runbookName, id, 'params.trace_ref_table_by_context_type', params.trace_ref_table_by_context_type, failures);
+      validateIdentifierMap(runbookName, id, 'params.trace_ref_match_column_by_context_type', params.trace_ref_match_column_by_context_type, failures);
     }
   }
 }
@@ -283,5 +294,30 @@ async function validateDistBuilt(root, failures) {
     await access(entryPoint);
   } catch {
     failures.push('dist/mcp/server.js not found. Run "pnpm build" before using the MCP server.');
+  }
+}
+
+function validateIdentifierField(runbookName, stepId, fieldName, value, failures) {
+  if (!value) return;
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
+    failures.push(`Runbook ${runbookName} step [${stepId}]: ${fieldName} "${value}" is not a valid identifier.`);
+  }
+}
+
+function validateIdentifierMap(runbookName, stepId, fieldName, value, failures) {
+  if (!value || typeof value !== 'object') return;
+  for (const [contextType, identifier] of Object.entries(value)) {
+    if (typeof identifier !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier)) {
+      failures.push(`Runbook ${runbookName} step [${stepId}]: ${fieldName}.${contextType} "${identifier}" is not a valid identifier.`);
+    }
+  }
+}
+
+function validateKeyTemplateMap(runbookName, stepId, value, failures, pattern) {
+  if (!value || typeof value !== 'object') return;
+  for (const [contextType, template] of Object.entries(value)) {
+    if (typeof template !== 'string' || !pattern.test(template)) {
+      failures.push(`Runbook ${runbookName} step [${stepId}]: params.key_template_by_context_type.${contextType} "${template}" has invalid format. Use alphanumeric, colon, dash, dot, or {{context_id}}.`);
+    }
   }
 }

@@ -97,6 +97,11 @@ steps:
     tool: trace.lookup
     required: false
     purpose: confirm whether the flow can be mapped to a trace
+    params:
+      trace_ref_column: trace_id
+      trace_ref_table_by_context_type:
+        request_id: orders
+        order_id: orders
 
   - id: inspect_core_path
     tool: trace.inspect_spans
@@ -107,11 +112,22 @@ steps:
     tool: db.readonly_query
     required: true
     purpose: check whether expected state was persisted
+    params:
+      table_by_context_type:
+        request_id: orders
+        order_id: orders
+      match_column_by_context_type:
+        request_id: request_id
+        order_id: order_id
 
   - id: inspect_cache
     tool: redis.inspect
     required: false
     purpose: detect stale cache or idempotency short-circuit
+    params:
+      key_template_by_context_type:
+        request_id: "idempotency:{{context_id}}"
+        order_id: "task:idempotent:{{context_id}}"
 
 decision_rules:
   - id: trace_missing
@@ -218,6 +234,23 @@ Each runbook should define:
 - decision metadata with ordered evidence rules and fallback behavior
 - response wording for root cause, alternative hypotheses, and next actions
 - confirmed-fact templates for report rendering
+
+## Optional Context-Specific Params
+
+When one runbook supports multiple `context_type` values, prefer explicit parameter maps over hidden code assumptions.
+
+Supported step param variants today:
+
+- `table_by_context_type`
+- `match_column_by_context_type`
+- `key_template_by_context_type`
+- `trace_ref_table_by_context_type`
+
+These maps let one runbook stay honest about different lookup paths such as:
+
+- `order_id -> orders.order_id -> order:view:{{context_id}}`
+- `task_id -> tasks.task_id -> task:view:{{context_id}}`
+- `request_id -> orders.request_id -> idempotency:{{context_id}}`
 
 ## Anti-Patterns
 

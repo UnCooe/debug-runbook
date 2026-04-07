@@ -3,7 +3,6 @@ description: Investigate whether stale cache is causing an incorrect backend beh
 
 match:
   context_types:
-    - request_id
     - order_id
     - task_id
   symptoms:
@@ -20,15 +19,21 @@ steps:
     required: true
     purpose: inspect current cache value and ttl
     params:
-      key_template: "cache:order:{{context_id}}"
+      key_template_by_context_type:
+        order_id: "order:view:{{context_id}}"
+        task_id: "task:view:{{context_id}}"
 
   - id: verify_db_state
     tool: db.readonly_query
     required: true
     purpose: compare cache against persisted state
     params:
-      table: orders
-      match_column: order_id
+      table_by_context_type:
+        order_id: orders
+        task_id: tasks
+      match_column_by_context_type:
+        order_id: order_id
+        task_id: task_id
 
   - id: inspect_recent_trace
     tool: trace.lookup
@@ -36,6 +41,12 @@ steps:
     purpose: find whether a cache write or invalidation was expected
     params:
       trace_ref_column: trace_id
+      trace_ref_table_by_context_type:
+        order_id: orders
+        task_id: tasks
+      trace_ref_match_column_by_context_type:
+        order_id: order_id
+        task_id: task_id
 
 decision_rules:
   - id: cache_db_mismatch
