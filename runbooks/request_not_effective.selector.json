@@ -1,7 +1,7 @@
 {
   "name": "request_not_effective",
   "priority": 2,
-  "context_types": ["trace_id", "request_id", "order_id"],
+  "context_types": ["request_id", "order_id"],
   "positive_signals": [
     { "pattern": "did not", "weight": 2.5 },
     { "pattern": "not generated", "weight": 2.5 },

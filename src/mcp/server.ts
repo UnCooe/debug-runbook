@@ -34,13 +34,17 @@ server.tool(
     const config = await loadConfig();
 
     // 3. Select Runbook
-    const selection = await selectRunbook(incident);
+    const selection = await selectRunbook(incident, config.runbooks);
+    if (!selection.candidates.some((candidate) => candidate.context_supported)) {
+      throw new Error(`No configured runbook supports context_type "${context_type}".`);
+    }
 
     // 4. Execute Runbook -> Generate report
     const report = await executeRunbook({
       incident,
       config,
       selectedRunbook: selection.selected,
+      configuredRunbooks: config.runbooks,
     });
 
     // 5. Return MCP content block

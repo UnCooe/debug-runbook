@@ -5,7 +5,6 @@ match:
   context_types:
     - order_id
     - task_id
-    - user_id
   symptoms:
     - status is incorrect
     - data exists but state is unexpected
@@ -20,8 +19,12 @@ steps:
     required: true
     purpose: fetch the current persisted state
     params:
-      table: orders
-      match_column: order_id
+      table_by_context_type:
+        order_id: orders
+        task_id: tasks
+      match_column_by_context_type:
+        order_id: order_id
+        task_id: task_id
 
   - id: inspect_related_trace
     tool: trace.lookup
@@ -29,13 +32,21 @@ steps:
     purpose: map recent transitions to execution flow
     params:
       trace_ref_column: trace_id
+      trace_ref_table_by_context_type:
+        order_id: orders
+        task_id: tasks
+      trace_ref_match_column_by_context_type:
+        order_id: order_id
+        task_id: task_id
 
   - id: inspect_cache
     tool: redis.inspect
     required: false
     purpose: detect stale or contradictory cached state
     params:
-      key_template: "cache:order:{{context_id}}"
+      key_template_by_context_type:
+        order_id: "order:view:{{context_id}}"
+        task_id: "task:view:{{context_id}}"
 
 decision_rules:
   - id: db_cache_conflict

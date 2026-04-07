@@ -32,8 +32,9 @@ adapters:
     # Only allow access to keys matching these prefixes
     key_prefix_allowlist:
       - "idempotency:"
-      - "cache:order:"
-      - "cache:task:"
+      - "task:idempotent:"
+      - "order:view:"
+      - "task:view:"
       - "session:"
 
 runbooks:
