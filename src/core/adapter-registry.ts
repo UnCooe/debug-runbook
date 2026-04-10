@@ -7,9 +7,17 @@ export interface RunbookStep {
   purpose: string;
   params?: {
     table?: string;
+    table_by_context_type?: Record<string, string>;
     match_column?: string;
+    match_column_by_context_type?: Record<string, string>;
     key_template?: string;
+    key_template_by_context_type?: Record<string, string>;
     trace_ref_column?: string;
+    trace_ref_column_by_context_type?: Record<string, string>;
+    trace_ref_table?: string;
+    trace_ref_table_by_context_type?: Record<string, string>;
+    trace_ref_match_column?: string;
+    trace_ref_match_column_by_context_type?: Record<string, string>;
   };
 }
 
@@ -29,6 +37,11 @@ export interface AdapterHandler {
 const adapterHandlers: AdapterHandler[] = [];
 
 export function registerAdapterHandler(handler: AdapterHandler): void {
+  const existingIndex = adapterHandlers.findIndex((item) => item.prefix === handler.prefix);
+  if (existingIndex >= 0) {
+    adapterHandlers[existingIndex] = handler;
+    return;
+  }
   adapterHandlers.push(handler);
 }
 

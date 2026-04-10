@@ -4,6 +4,17 @@
   "description": "Runbook-driven backend incident investigation framework for AI agents",
   "private": false,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UnCooe/debug-runbook.git"
+  },
+  "homepage": "https://github.com/UnCooe/debug-runbook#readme",
+  "bugs": {
+    "url": "https://github.com/UnCooe/debug-runbook/issues"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
@@ -16,8 +27,9 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
     "dev": "tsc --watch",
+    "demo": "tsx scripts/run-demo.mjs fixtures/cases/order-task-missing",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "check": "node scripts/check.mjs",
@@ -27,8 +39,24 @@
     "demo:stale-cache-view": "tsx scripts/run-demo.mjs fixtures/cases/stale-cache-view",
     "demo:state-abnormal-cache-view": "tsx scripts/run-demo.mjs fixtures/cases/state-abnormal-cache-view",
     "benchmark": "tsx scripts/run-benchmark.mjs",
-    "start:mcp": "node dist/mcp/server.js"
+    "start:mcp": "node dist/mcp/server.js",
+    "prepack": "pnpm build"
   },
+  "files": [
+    "dist",
+    "adapters",
+    "docs",
+    "evidence-policies",
+    "metadata-schemas",
+    "runbooks",
+    "schemas",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "agent-debugger.config.example.yaml",
+    "README.md",
+    "README_zh.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
     "ioredis": "^5.6.0",

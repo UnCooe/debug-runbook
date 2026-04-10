@@ -1,47 +1,102 @@
-# debug-runbook / agent-debugger
+# agent-debugger
 
 **Runbook-driven backend incident investigation for AI agents.**
 
-`debug-runbook` encodes the troubleshooting workflows of senior engineers into executable Runbooks. It empowers AI Agents to sequentially collect evidence, evaluate decision rules, and ultimately output structured incident reports.
+> Status: early open-source MVP.
+>
+> This repository was inspired by a real internal AI troubleshooting and self-healing workflow. The original production DAG, permissions, and observability plumbing are private and are not reproduced here. This repo focuses on the reusable layer: runbooks, evidence normalization, decision logic, and an MCP entrypoint.
 
-> **Status:** Early open-source MVP. Contributions are welcome!
+[Read this in Chinese (Simplified Chinese)](README_zh.md)
 
-[Read this in Chinese (简体中文)](README_zh.md)
+## Does This Sound Familiar?
 
----
+Many online incidents are not hard because they are unique. They are hard because engineers keep replaying the same investigation sequence by hand:
 
-## The Core Philosophy
+- Compare actual behavior with the expected result.
+- Check whether Redis is already wrong.
+- Check whether the database source of truth is wrong.
+- Check the trace to see where the workflow stopped.
+- Decide whether the issue is stale cache, missing side effects, or abnormal persisted state.
 
-Most AI debugging demos simply expose low-level tool APIs to LLMs, which lacks investigation order, evidence standards, and drift detection (hallucination control).
+Example:
 
-`debug-runbook` encodes these missing constraints:
+- A detail page returns the wrong asset state.
+- The expected investigation order is stable: inspect cache, inspect DB, inspect trace, inspect external dependencies.
+- The useful input for the agent is also stable: `trace_id`, expected result, actual result.
 
-1. **Runbook Selection**: Selects the best-matching investigation playbook based on the weight of symptom signals.
-2. **Ordered Execution**: Calls adapters strictly in the sequence declared by the Runbook.
-3. **Evidence Normalization**: Normalizes all tool return values into `Evidence` objects, rather than dumping raw payloads (saving tokens and reducing noise).
-4. **Decision Engine**: Combines evidence types to trigger specific conclusions. Every conclusion must be backed by evidence.
-5. **Structured Reporting**: Outputs the root cause, confirmed facts, alternative hypotheses, and next steps.
+`agent-debugger` exists for that pattern. It turns repeated troubleshooting habits into executable runbooks so an agent can gather evidence in order instead of guessing freely.
 
----
+## What This Repo Actually Implements
 
-## Quick Start
+- A runbook selector that scores incident patterns and picks the best-matching investigation path.
+- An executor that calls adapters in a fixed order defined by the runbook.
+- Evidence normalization so tool output becomes compact, structured findings instead of raw payload dumps.
+- A decision engine that maps evidence combinations to conclusions and next actions.
+- An MCP server entrypoint so the investigation flow can be exposed to AI tools.
 
-### Installation
+## 5-Minute Demo
+
+The zero-config path is the fastest way to understand the project. It uses replayable fixtures and does not require Langfuse, Postgres, or Redis credentials.
+
+Requirements:
+
+- Node.js `>= 18.17`
+- `pnpm`
+
+Run:
 
 ```bash
 pnpm install
+pnpm demo
+pnpm benchmark
+pnpm check
+```
+
+What you get:
+
+- A runnable incident walkthrough from fixture input to structured report.
+- A benchmark over the built-in replay cases.
+- A metadata consistency check for runbooks, adapters, and evidence policies.
+
+Important:
+
+- `pnpm demo` and `pnpm benchmark` validate replayable investigation cases.
+- They are meant to prove the investigation model and repository structure, not to claim full production integration coverage.
+
+## A Concrete Demo Scenario
+
+The default demo replays this kind of incident:
+
+- Actual: an order was created, but the downstream task was never generated.
+- Expected: a task record should exist after order creation.
+- Investigation order: trace -> persistence -> idempotency/cache.
+
+The output shows:
+
+- which runbook was selected
+- which evidence items were confirmed
+- which conclusion fired
+- which next actions were recommended
+
+## Connect To Real Systems
+
+After the zero-config demo, you can connect the MCP server to your own observability and storage systems.
+
+Build the server:
+
+```bash
 pnpm build
 ```
 
-### Configuration
+Create a config file:
 
 ```bash
 cp agent-debugger.config.example.yaml agent-debugger.config.yaml
-# Fill in your Langfuse / DB / Redis credentials
 ```
 
+Example:
+
 ```yaml
-# agent-debugger.config.yaml
 adapters:
   langfuse:
     base_url: https://cloud.langfuse.com
@@ -53,19 +108,20 @@ adapters:
     allowed_tables: [orders, tasks]
   redis:
     url: ${REDIS_URL}
-    key_prefix_allowlist: ["cache:order:", "idempotency:"]
+    key_prefix_allowlist: ["idempotency:", "task:idempotent:", "order:view:", "task:view:"]
+
+runbooks:
+  - ./runbooks/request_not_effective.yaml
 ```
 
-### Connect to AI via MCP
-
-Add this to your Claude Desktop or OpenClaw MCP configuration:
+Add the MCP server to your AI client:
 
 ```json
 {
   "mcpServers": {
     "agent-debugger": {
       "command": "node",
-      "args": ["/path/to/debug-runbook/dist/mcp/server.js"],
+      "args": ["/path/to/agent-debugger/dist/mcp/server.js"],
       "env": {
         "LANGFUSE_SECRET_KEY": "sk-...",
         "LANGFUSE_PUBLIC_KEY": "pk-...",
@@ -77,19 +133,42 @@ Add this to your Claude Desktop or OpenClaw MCP configuration:
 }
 ```
 
-Then simply prompt the AI:
+Then provide a concrete incident:
 
-> `investigate` `trace_id=abc123`, Symptom: Order was created successfully but the downstream task wasn't generated. Expected: There should be a corresponding record in the tasks table.
+> Investigate `order_id=order_123`. Actual: order was created but no task was generated. Expected: a task row should exist.
 
-### Run Local Demos (No real systems required)
+## What This Repo Is Not
 
-```bash
-npm run demo:order-task-missing
-npm run benchmark        # Should pass all test cases
-npm run check            # Metadata structure validation
-```
+- It is not the original internal production system.
+- It is not a generic autonomous bug-fixing platform.
+- It does not ship the private DAG orchestration, permission system, or internal repair workflows from the original environment.
+- It does not grant unlimited automatic repair authority.
 
----
+## Safety Boundaries
+
+- All adapters in this MVP are read-only.
+- SQL queries are guarded against write operations.
+- DB access is limited by a table allowlist.
+- Redis access is limited by a key-prefix allowlist.
+- Langfuse span fields are filtered by allowlist before being turned into evidence.
+
+## Built-In Runbooks
+
+| Runbook | Scenario |
+|---------|---------|
+| `request_not_effective` | A request succeeded but the expected side effect did not happen |
+| `cache_stale` | Cached state appears inconsistent with persistence |
+| `state_abnormal` | Persisted business state itself looks incorrect |
+
+Current built-in context coverage is intentionally narrow:
+
+- `request_not_effective`: `request_id`, `order_id`
+- `cache_stale`: `order_id`, `task_id`
+- `state_abnormal`: `order_id`, `task_id`
+
+If you want broader locator support such as `trace_id` or `user_id`, add a custom runbook through `runbooks:` in the config file.
+
+Custom runbooks are supported through `runbooks:` entries in the config file. Each custom runbook should include sibling `.selector.json`, `.execution.json`, and `.decision.json` metadata files.
 
 ## Architecture
 
@@ -98,60 +177,14 @@ Incident Input (context_id + symptom + expected)
        ↓
 [Runbook Selector]   Matches signal weights via *.selector.json
        ↓
-[Executor]           Calls adapters in order defined by *.execution.json
+[Executor]           Calls adapters in order defined by the runbook
        ↓
-[Adapter Layer]      Langfuse / PostgreSQL / Redis → Evidence[]
+[Adapter Layer]      Langfuse / PostgreSQL / Redis -> Evidence[]
        ↓
-[Decision Engine]    Matches rules via *.decision.json → Conclusion + Confidence
+[Decision Engine]    Maps evidence to a conclusion and next actions
        ↓
 [Reporter]           Structured IncidentReport
 ```
-
-### Directory Structure
-
-```text
-debug-runbook/
-├── src/                    # TypeScript source code
-│   ├── adapters/           # Langfuse / DB / Redis adapters
-│   ├── core/               # selector / executor / reporter
-│   ├── config/             # YAML config loader
-│   ├── mcp/server.ts       # MCP Server entrypoint
-│   └── types/              # Global Zod schemas
-├── runbooks/               # Troubleshooting playbooks (YAML + JSON sidecars)
-├── adapters/               # Adapter normalization metadata (JSON)
-├── evidence-policies/      # Cross-source derived evidence rules
-├── fixtures/               # Replayable mock cases
-├── scripts/                # Demos and benchmark scripts
-└── docs/                   # Design documentation
-```
-
----
-
-## Built-in Runbooks
-
-| Runbook | Scenario |
-|---------|---------|
-| `request_not_effective` | Request succeeded but expected side-effects did not occur (e.g., order created but task missing) |
-| `cache_stale` | Returned value contradicts persisted state, suspected stale cache |
-| `state_abnormal` | The persisted state itself does not match business expectations |
-
-### Adding a Custom Runbook
-
-1. Create `your-runbook.yaml` (See `docs/runbook-spec.md`)
-2. Create companion files: `.selector.json` / `.execution.json` / `.decision.json`
-3. Add the path to the `runbooks:` list in `agent-debugger.config.yaml`
-
----
-
-## Security Constraints
-
-- **Read-Only**: All adapters are strictly read-only. There are no write operations in the MVP.
-- **SQL Safety**: Intercepts dangerous statements like INSERT/UPDATE/DELETE/DROP.
-- **Table Allowlist**: DB adapter can only access specified tables.
-- **Key Prefix Allowlist**: Redis adapter can only access keys with specified prefixes.
-- **Field Filtering**: Langfuse span fields are filtered by allowlist to prevent token explosion.
-
----
 
 ## Documentation
 
@@ -160,6 +193,11 @@ debug-runbook/
 - [Runbook Specification](docs/runbook-spec.md)
 - [Adapter Specification](docs/tool-adapter-spec.md)
 - [Evaluation](docs/evaluation.md)
+- [Release Checklist](docs/release-checklist.md)
+- [Release Announcement Draft](docs/release-announcement.md)
+- [v0.1.0 Release Notes Draft](docs/release-v0.1.0.md)
+- [Changelog](CHANGELOG.md)
+- [Security Policy](SECURITY.md)
 
 ## Contributing
 

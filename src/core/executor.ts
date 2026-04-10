@@ -1,8 +1,6 @@
 // Executor - Runbook Execution Scheduler
-// Dynamically invokes the corresponding adapter based on the selected runbook steps.
+// Dynamically invokes the corresponding adapter based on the selected runbook's steps.
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import type { AgentDebuggerConfig, EvidenceItem, IncidentInput, IncidentReport } from '../types/index.js';
 import { DbReadonlyClient } from '../adapters/db/client.js';
@@ -19,13 +17,13 @@ import {
 } from './adapter-registry.js';
 import type { DecisionMetadata } from './decision.js';
 import { buildReport, determineConclusion } from './reporter.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const RUNBOOK_DIR = path.resolve(__dirname, '..', '..', 'runbooks');
+import { resolveRunbookFilePath } from './runbook-paths.js';
 
 interface RunbookYaml {
   name: string;
+  match?: {
+    context_types?: string[];
+  };
   steps: RunbookStep[];
 }
 
@@ -38,6 +36,7 @@ export interface ExecutionContext {
   incident: IncidentInput;
   config: AgentDebuggerConfig;
   selectedRunbook: string;
+  configuredRunbooks?: string[];
 }
 
 registerAdapterHandler({
@@ -48,9 +47,30 @@ registerAdapterHandler({
     }
 
     const entityId = incident.context_id;
+    const traceRefTable = resolveContextParam(
+      step.params?.trace_ref_table,
+      step.params?.trace_ref_table_by_context_type,
+      incident.context_type,
+    ) ?? 'orders';
+    const traceRefColumn = resolveContextParam(
+      step.params?.trace_ref_column,
+      step.params?.trace_ref_column_by_context_type,
+      incident.context_type,
+    ) ?? 'trace_id';
+    const traceRefMatchColumn = resolveContextParam(
+      step.params?.trace_ref_match_column,
+      step.params?.trace_ref_match_column_by_context_type,
+      incident.context_type,
+    ) ?? incident.context_type;
     const traceId = incident.context_type === 'trace_id'
       ? entityId
-      : await resolveTraceId(incident, config, step.params?.trace_ref_column ?? 'trace_id');
+      : await resolveTraceId(
+        incident,
+        config,
+        traceRefTable,
+        traceRefColumn,
+        traceRefMatchColumn,
+      );
 
     if (!traceId) {
       return makeStepErrorResult(`[${step.id}] cannot resolve to trace_id`);
@@ -70,8 +90,16 @@ registerAdapterHandler({
     }
 
     const entityId = incident.context_id;
-    const table = step.params?.table ?? 'orders';
-    const matchColumn = step.params?.match_column ?? incident.context_type;
+    const table = resolveContextParam(
+      step.params?.table,
+      step.params?.table_by_context_type,
+      incident.context_type,
+    ) ?? 'orders';
+    const matchColumn = resolveContextParam(
+      step.params?.match_column,
+      step.params?.match_column_by_context_type,
+      incident.context_type,
+    ) ?? incident.context_type;
     const client = new DbReadonlyClient(config.adapters.db);
 
     try {
@@ -91,7 +119,11 @@ registerAdapterHandler({
     }
 
     const entityId = incident.context_id;
-    const keyTemplate = step.params?.key_template ?? '{{context_id}}';
+    const keyTemplate = resolveContextParam(
+      step.params?.key_template,
+      step.params?.key_template_by_context_type,
+      incident.context_type,
+    ) ?? '{{context_id}}';
     const key = keyTemplate.replace(/\{\{context_id\}\}/g, entityId);
     const client = new RedisClient(config.adapters.redis);
 
@@ -106,13 +138,15 @@ registerAdapterHandler({
 
 export async function executeRunbook(ctx: ExecutionContext): Promise<IncidentReport> {
   const { incident, config, selectedRunbook } = ctx;
+  const configuredRunbooks = ctx.configuredRunbooks ?? config.runbooks;
 
   const [runbookYaml, decision] = await Promise.all([
-    loadRunbookYaml(selectedRunbook),
-    loadRunbookJson<DecisionMetadata>(selectedRunbook, 'decision'),
+    loadRunbookYaml(selectedRunbook, configuredRunbooks),
+    loadRunbookJson<DecisionMetadata>(selectedRunbook, 'decision', configuredRunbooks),
   ]);
+  validateRunbookContext(runbookYaml, incident.context_type, selectedRunbook);
 
-  const steps = runbookYaml.steps ?? (await getFallbackSteps(selectedRunbook));
+  const steps = runbookYaml.steps ?? (await getFallbackSteps(selectedRunbook, configuredRunbooks));
   const evidence: EvidenceItem[] = [];
 
   for (const step of steps) {
@@ -147,15 +181,19 @@ async function runStep(
 async function resolveTraceId(
   incident: IncidentInput,
   config: AgentDebuggerConfig,
+  traceRefTable: string,
   traceRefColumn: string,
+  traceRefMatchColumn: string,
 ): Promise<string | null> {
   if (!config.adapters.db) return null;
 
   const client = new DbReadonlyClient(config.adapters.db);
   try {
-    const matchColumn = incident.context_type;
-    const sql = `SELECT ${traceRefColumn} FROM orders WHERE ${matchColumn} = $1 LIMIT 1`;
-    const result = await client.query(sql, [incident.context_id], 'orders');
+    assertSafeIdentifier(traceRefTable);
+    assertSafeIdentifier(traceRefColumn);
+    assertSafeIdentifier(traceRefMatchColumn);
+    const sql = `SELECT ${traceRefColumn} FROM ${traceRefTable} WHERE ${traceRefMatchColumn} = $1 LIMIT 1`;
+    const result = await client.query(sql, [incident.context_id], traceRefTable);
     const row = result.rows[0];
     return (row?.[traceRefColumn] as string | undefined) ?? null;
   } catch {
@@ -186,20 +224,24 @@ function deriveCrossSourceEvidence(evidence: EvidenceItem[], entityId: string): 
   return [];
 }
 
-async function loadRunbookYaml(runbookName: string): Promise<RunbookYaml> {
-  const filePath = path.join(RUNBOOK_DIR, `${runbookName}.yaml`);
+async function loadRunbookYaml(runbookName: string, configuredRunbooks: string[] = []): Promise<RunbookYaml> {
+  const filePath = await resolveRunbookFilePath(runbookName, 'yaml', configuredRunbooks);
   const content = await readFile(filePath, 'utf-8');
   return parseYaml(content) as RunbookYaml;
 }
 
-async function loadRunbookJson<T>(runbookName: string, kind: string): Promise<T> {
-  const filePath = path.join(RUNBOOK_DIR, `${runbookName}.${kind}.json`);
+async function loadRunbookJson<T>(
+  runbookName: string,
+  kind: 'selector' | 'execution' | 'decision',
+  configuredRunbooks: string[] = [],
+): Promise<T> {
+  const filePath = await resolveRunbookFilePath(runbookName, kind, configuredRunbooks);
   const content = await readFile(filePath, 'utf-8');
   return JSON.parse(content) as T;
 }
 
-async function getFallbackSteps(runbookName: string): Promise<RunbookStep[]> {
-  const execution = await loadRunbookJson<ExecutionMetadata>(runbookName, 'execution');
+async function getFallbackSteps(runbookName: string, configuredRunbooks: string[] = []): Promise<RunbookStep[]> {
+  const execution = await loadRunbookJson<ExecutionMetadata>(runbookName, 'execution', configuredRunbooks);
   return (execution.operations ?? []).map((operation) => ({
     id: operation,
     tool: operation,
@@ -231,4 +273,25 @@ function makeErrorEvidence(stepId: string, message: string, entityId: string): E
     severity: 'error',
     normalization_status: 'complete',
   };
+}
+
+function resolveContextParam(
+  directValue: string | undefined,
+  mappedValue: Record<string, string> | undefined,
+  contextType: string,
+): string | undefined {
+  return mappedValue?.[contextType] ?? directValue;
+}
+
+function assertSafeIdentifier(name: string): void {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Invalid identifier: ${name}`);
+  }
+}
+
+function validateRunbookContext(runbookYaml: RunbookYaml, contextType: string, runbookName: string): void {
+  const supported = runbookYaml.match?.context_types;
+  if (supported && supported.length > 0 && !supported.includes(contextType)) {
+    throw new Error(`Runbook "${runbookName}" does not support context_type "${contextType}".`);
+  }
 }
