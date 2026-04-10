@@ -171,11 +171,17 @@ async function runStep(
 ): Promise<{ ok: boolean; evidence: EvidenceItem[]; errors: string[] }> {
   const handler = getAdapterHandler(step.tool);
   if (!handler) {
-    return { ok: false, evidence: [], errors: [`[${step.id}] Unknown tool type: ${step.tool}`] };
+    const result = makeStepErrorResult(`[${step.id}] Unknown tool type: ${step.tool}`);
+    return { ok: result.ok, evidence: result.evidence, errors: result.errors };
   }
 
-  const result = await handler.run({ step, incident, config });
-  return { ok: result.ok, evidence: result.evidence, errors: result.errors };
+  try {
+    const result = await handler.run({ step, incident, config });
+    return { ok: result.ok, evidence: result.evidence, errors: result.errors };
+  } catch (error) {
+    const result = makeStepErrorResult(`[${step.id}] step execution threw: ${String(error)}`);
+    return { ok: result.ok, evidence: result.evidence, errors: result.errors };
+  }
 }
 
 async function resolveTraceId(
