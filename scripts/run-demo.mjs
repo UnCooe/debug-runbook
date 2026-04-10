@@ -4,7 +4,7 @@ import { runCase, renderMarkdownReport } from './demo-lib.mjs';
 const inputPath = process.argv[2];
 
 if (!inputPath) {
-  console.error('Usage: node scripts/run-demo.mjs <case-directory>');
+  console.error('Usage: tsx scripts/run-demo.mjs <case-directory>');
   process.exit(1);
 }
 

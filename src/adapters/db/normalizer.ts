@@ -1,14 +1,9 @@
 // DB Adapter Normalizer
 // 将 PostgreSQL 查询结果转换为标准 Evidence 对象
-import type { EvidenceItem } from '../../types/index.js';
+import type { AdapterResult, EvidenceItem } from '../../types/index.js';
 import type { DbReadonlyClient } from './client.js';
 
-export interface DbAdapterResult {
-  ok: boolean;
-  source: 'db';
-  evidence: EvidenceItem[];
-  errors: string[];
-}
+export type DbAdapterResult = AdapterResult<'db'>;
 
 /**
  * 通用 DB adapter：查询实体并规范化

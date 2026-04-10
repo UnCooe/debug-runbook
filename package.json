@@ -22,11 +22,11 @@
     "test:coverage": "vitest run --coverage",
     "check": "node scripts/check.mjs",
     "check:demo-fail": "node scripts/check-failure-demo.mjs",
-    "demo:order-task-missing": "node scripts/run-demo.mjs fixtures/cases/order-task-missing",
-    "demo:request-not-persisted": "node scripts/run-demo.mjs fixtures/cases/request-not-persisted",
-    "demo:stale-cache-view": "node scripts/run-demo.mjs fixtures/cases/stale-cache-view",
-    "demo:state-abnormal-cache-view": "node scripts/run-demo.mjs fixtures/cases/state-abnormal-cache-view",
-    "benchmark": "node scripts/run-benchmark.mjs",
+    "demo:order-task-missing": "tsx scripts/run-demo.mjs fixtures/cases/order-task-missing",
+    "demo:request-not-persisted": "tsx scripts/run-demo.mjs fixtures/cases/request-not-persisted",
+    "demo:stale-cache-view": "tsx scripts/run-demo.mjs fixtures/cases/stale-cache-view",
+    "demo:state-abnormal-cache-view": "tsx scripts/run-demo.mjs fixtures/cases/state-abnormal-cache-view",
+    "benchmark": "tsx scripts/run-benchmark.mjs",
     "start:mcp": "node dist/mcp/server.js"
   },
   "dependencies": {
@@ -40,6 +40,7 @@
     "@types/node": "^22.13.10",
     "@types/pg": "^8.11.11",
     "@vitest/coverage-v8": "^4.0.18",
+    "tsx": "^4.20.6",
     "typescript": "^5.8.2",
     "vitest": "^4.0.18"
   }

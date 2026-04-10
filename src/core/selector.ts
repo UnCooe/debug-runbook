@@ -1,5 +1,4 @@
 // Runbook Selector - Selects the most appropriate Runbook based on signal weights
-// Logic ported from scripts/runbook-selector.mjs, with TypeScript types added
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

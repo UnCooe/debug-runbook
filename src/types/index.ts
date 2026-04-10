@@ -87,6 +87,11 @@ export const AdapterResponseSchema = z.object({
 });
 
 export type AdapterResponse = z.infer<typeof AdapterResponseSchema>;
+export type AdapterResult<
+  Source extends EvidenceItem['source'] = EvidenceItem['source'],
+> = Omit<AdapterResponse, 'source'> & {
+  source: Source;
+};
 
 // ─────────────────────────────────────────
 // Configuration Schema
