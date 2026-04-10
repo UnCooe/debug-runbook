@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { selectRunbook } from './runbook-selector.mjs';
+import { buildReport, determineConclusion } from '../src/core/reporter.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,7 +37,13 @@ export async function runCase(caseDir) {
   evidence = dedupeEvidence(evidence);
 
   const decisionResult = determineConclusion(decision, evidence);
-  const report = buildReport(manifest, decision, evidence, decisionResult);
+  const report = buildReport(
+    manifest.incident,
+    selectedRunbook,
+    decision,
+    evidence,
+    decisionResult
+  );
 
   return {
     manifest,
@@ -133,61 +140,6 @@ async function loadDerivedPolicy() {
 
   derivedPolicyCache = await readJson(path.join(EVIDENCE_POLICY_DIR, 'derived-evidence.json'));
   return derivedPolicyCache;
-}
-
-function buildReport(manifest, decision, evidence, decisionResult) {
-  const confirmedFacts = buildConfirmedFacts(decision, evidence);
-  return {
-    incident_summary: `${manifest.incident.symptom} Expected result: ${manifest.incident.expected}`,
-    confirmed_facts: confirmedFacts,
-    most_likely_root_cause: decisionResult.root_cause,
-    alternative_hypotheses: decisionResult.alternative_hypotheses || [],
-    evidence,
-    recommended_next_actions: decisionResult.recommended_next_actions || [],
-    confidence: decisionResult.confidence
-  };
-}
-
-function buildConfirmedFacts(decision, evidence) {
-  const facts = [];
-  const templates = decision.confirmed_fact_templates || [];
-
-  for (const template of templates) {
-    if (hasFinding(evidence, template.finding_type)) {
-      facts.push(template.text);
-    }
-  }
-
-  for (const item of decision.default_confirmed_facts || []) {
-    facts.push(item);
-  }
-
-  return dedupeStrings(facts);
-}
-
-function determineConclusion(decision, evidence) {
-  for (const rule of decision.rules || []) {
-    const allMatched = (rule.all || []).every((findingType) => hasFinding(evidence, findingType));
-    if (allMatched) {
-      return {
-        rule_id: rule.id,
-        conclusion: rule.conclusion,
-        confidence: rule.confidence ?? 0.4,
-        root_cause: rule.root_cause || 'The available evidence is insufficient to isolate a single root cause.',
-        alternative_hypotheses: rule.alternative_hypotheses || [],
-        recommended_next_actions: rule.recommended_next_actions || []
-      };
-    }
-  }
-
-  return {
-    rule_id: decision.fallback?.id || 'fallback',
-    conclusion: decision.fallback?.conclusion || 'investigation_inconclusive',
-    confidence: decision.fallback?.confidence ?? 0.4,
-    root_cause: decision.fallback?.root_cause || 'The available evidence is insufficient to isolate a single root cause.',
-    alternative_hypotheses: decision.fallback?.alternative_hypotheses || [],
-    recommended_next_actions: decision.fallback?.recommended_next_actions || []
-  };
 }
 
 function deriveCrossSourceEvidence(rawResponses, manifest, policy) {
@@ -392,14 +344,6 @@ function dedupeEvidence(evidence) {
     seen.add(key);
     return true;
   });
-}
-
-function dedupeStrings(items) {
-  return [...new Set(items)];
-}
-
-function hasFinding(evidence, findingType) {
-  return evidence.some((item) => item.finding_type === findingType);
 }
 
 function makeEvidence(input) {

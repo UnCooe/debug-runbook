@@ -209,16 +209,58 @@ describe('Executor Engine', () => {
       selectedRunbook: 'request_not_effective',
     })).rejects.toThrow('does not support context_type "trace_id"');
   });
+
+  it('contains adapter exceptions as step errors instead of aborting the runbook', async () => {
+    const customRunbookPath = await createCustomRunbook(
+      'adapter_exception_story',
+      [
+        'name: adapter_exception_story',
+        'steps:',
+        '  - id: db_step',
+        '    tool: db.lookup_entity',
+        '    required: true',
+        '    purpose: reproduce adapter exception handling',
+      ].join('\n'),
+    );
+
+    vi.mocked(runDbAdapter).mockRejectedValue(new Error('db exploded'));
+
+    const report = await executeRunbook({
+      incident: {
+        context_id: 'order_42',
+        context_type: 'order_id',
+        symptom: 'database adapter threw unexpectedly',
+        expected: 'a report should still be produced',
+      },
+      config: {
+        adapters: {
+          db: { type: 'postgres', connection_string: '', allowed_tables: [] },
+        },
+        runbooks: [customRunbookPath],
+      },
+      selectedRunbook: 'adapter_exception_story',
+    });
+
+    expect(report.matched_decision_rule).toBe('custom-fallback');
+    expect(report.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          finding_type: 'step_error',
+          summary: expect.stringContaining('db exploded'),
+        }),
+      ]),
+    );
+  });
 });
 
-async function createCustomRunbook(name: string): Promise<string> {
+async function createCustomRunbook(name: string, yamlContent?: string): Promise<string> {
   const dirPath = await mkdtemp(path.join(os.tmpdir(), 'agent-debugger-runbook-'));
   tempDirs.push(dirPath);
 
   const runbookPath = path.join(dirPath, `${name}.yaml`);
   await writeFile(
     runbookPath,
-    `name: ${name}\nsteps: []\n`,
+    yamlContent ?? `name: ${name}\nsteps: []\n`,
     'utf8',
   );
   await writeFile(

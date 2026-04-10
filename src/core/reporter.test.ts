@@ -1,69 +1,69 @@
-import { describe, it, expect } from 'vitest';
-import { determineConclusion, buildReport } from './reporter.js';
+import { describe, expect, it } from 'vitest';
 import type { EvidenceItem } from '../types/index.js';
+import type { DecisionMetadata } from './decision.js';
+import { buildReport, determineConclusion } from './reporter.js';
 
-const mockDecision = {
-  name: "test_runbook",
+const mockDecision: DecisionMetadata = {
+  name: 'test_runbook',
   rules: [
     {
-      id: "rule-1",
-      all: ["cache_stale", "db_row_found"],
-      conclusion: "cache_stale_data_found",
+      id: 'rule-1',
+      all: ['cache_stale', 'db_row_found'],
+      conclusion: 'cache_stale_data_found',
       confidence: 0.9,
-      root_cause: "缓存未刷新"
-    }
+      root_cause: 'cache was not refreshed',
+    },
   ],
   fallback: {
-    conclusion: "unknown_issue",
-    confidence: 0.2
-  }
+    conclusion: 'unknown_issue',
+    confidence: 0.2,
+  },
 };
 
 describe('Reporter Engine', () => {
-  it('应当匹配给定规则 (all 条件全满足)', () => {
+  it('matches the configured rule when all findings are present', () => {
     const evidence: EvidenceItem[] = [
       { finding_type: 'cache_stale' } as EvidenceItem,
       { finding_type: 'db_row_found' } as EvidenceItem,
-      { finding_type: 'irrelevant_finding' } as EvidenceItem
+      { finding_type: 'irrelevant_finding' } as EvidenceItem,
     ];
 
-    const result = determineConclusion(mockDecision as any, evidence);
+    const result = determineConclusion(mockDecision, evidence);
     expect(result.rule_id).toBe('rule-1');
     expect(result.conclusion).toBe('cache_stale_data_found');
     expect(result.confidence).toBe(0.9);
   });
 
-  it('应当使用 fallback (all 条件不满足时)', () => {
+  it('uses the fallback when required findings are missing', () => {
     const evidence: EvidenceItem[] = [
-      { finding_type: 'cache_stale' } as EvidenceItem
-      // 缺少 db_row_found
+      { finding_type: 'cache_stale' } as EvidenceItem,
     ];
 
-    const result = determineConclusion(mockDecision as any, evidence);
+    const result = determineConclusion(mockDecision, evidence);
     expect(result.rule_id).toBe('fallback');
     expect(result.conclusion).toBe('unknown_issue');
     expect(result.confidence).toBe(0.2);
   });
 
-  it('应当正确构建 IncidentReport', () => {
+  it('builds the final incident report', () => {
     const evidence: EvidenceItem[] = [
-      { id: '1', finding_type: 'cache_stale', summary: 'cache is stale' } as EvidenceItem
+      { id: '1', finding_type: 'cache_stale', summary: 'cache is stale' } as EvidenceItem,
     ];
     const decisionResult = {
       conclusion: 'unknown_issue',
       confidence: 0.2,
       rule_id: 'fallback',
-      root_cause: '未知原因',
+      root_cause: 'unknown cause',
       alternative_hypotheses: [],
-      recommended_next_actions: []
+      recommended_next_actions: [],
     };
-    
+
     const report = buildReport(
       { context_id: 'ctx-1', context_type: 'order_id', symptom: 'issue', expected: 'ok' },
       'test_runbook',
-      mockDecision as any,
+      mockDecision,
       evidence,
-      decisionResult
+      decisionResult,
     );
 
     expect(report.incident_summary).toContain('issue');

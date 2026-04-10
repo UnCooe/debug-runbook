@@ -1,19 +1,15 @@
 // Langfuse Adapter Normalizer
 // 将 Langfuse 原始 API 响应转换为标准 Evidence 对象
-import type { EvidenceItem } from '../../types/index.js';
+import type { AdapterResult, EvidenceItem } from '../../types/index.js';
 import type { LangfuseClient, LangfuseTrace, LangfuseObservation } from './client.js';
 
-export interface LangfuseAdapterResult {
-  ok: boolean;
-  source: 'trace';
-  evidence: EvidenceItem[];
-  errors: string[];
+export type LangfuseAdapterResult = AdapterResult<'trace'> & {
   raw: {
     trace: LangfuseTrace | null;
     spans: LangfuseObservation[];
     errors: LangfuseObservation[];
   } | null;
-}
+};
 
 export async function runLangfuseAdapter(
   client: LangfuseClient,

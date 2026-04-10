@@ -1,15 +1,11 @@
 // Redis Adapter Normalizer
 // 将 Redis inspect 结果转换为标准 Evidence 对象
-import type { EvidenceItem } from '../../types/index.js';
+import type { AdapterResult, EvidenceItem } from '../../types/index.js';
 import type { RedisClient } from './client.js';
 
-export interface RedisAdapterResult {
-  ok: boolean;
-  source: 'redis';
-  evidence: EvidenceItem[];
-  errors: string[];
+export type RedisAdapterResult = AdapterResult<'redis'> & {
   raw: { exists: boolean; ttl_seconds: number | null; value_preview: unknown } | null;
-}
+};
 
 /**
  * 检查缓存 key 并将结果规范化为 Evidence

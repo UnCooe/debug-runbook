@@ -1,35 +1,6 @@
 // Incident Reporter - Generates final incident report from decision results and evidence
 import type { EvidenceItem, IncidentInput, IncidentReport } from '../types/index.js';
-
-interface DecisionRule {
-  id: string;
-  all?: string[];
-  conclusion: string;
-  confidence: number;
-  root_cause?: string;
-  alternative_hypotheses?: string[];
-  recommended_next_actions?: string[];
-}
-
-interface ConfirmedFactTemplate {
-  finding_type: string;
-  text: string;
-}
-
-interface DecisionMetadata {
-  name: string;
-  confirmed_fact_templates?: ConfirmedFactTemplate[];
-  default_confirmed_facts?: string[];
-  rules?: DecisionRule[];
-  fallback?: {
-    id?: string;
-    conclusion: string;
-    confidence: number;
-    root_cause?: string;
-    alternative_hypotheses?: string[];
-    recommended_next_actions?: string[];
-  };
-}
+import type { DecisionMetadata } from './decision.js';
 
 export interface DecisionResult {
   rule_id: string;
